@@ -248,12 +248,12 @@ export class App extends LitElement {
 			event.preventDefault()
 		}
 
-		if (playState.didChange === false) {
+		if (playState.consumed === false) {
 			return
 		}
 
 		this.updateActivePitchDisplay(playState.activePitch)
-		if (event.type === 'keydown' && playState.activePitch !== null) {
+		if (event.type === 'keydown' && playState.didChange && playState.activePitch !== null) {
 			this.triggerCount += 1
 		}
 		await this.synth.syncNotes(playState.heldPitches.map((pitch) => pitch.frequencyHz))

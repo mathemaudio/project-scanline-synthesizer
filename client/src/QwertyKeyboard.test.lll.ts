@@ -40,6 +40,26 @@ export class QwertyKeyboardTest {
 		return { heldLabels, activeKey }
 	}
 
+	@Scenario('releasing older keys from a three-note chord removes only those released pitches')
+	static async releasesChordKeysIndividually(subjectFactory: SubjectFactory<QwertyKeyboard>, scenario: ScenarioParameter): Promise<{ heldAfterFirstRelease: string, heldAfterSecondRelease: string, finalActiveNote: string }> {
+		const assert: AssertFn = this.readScenario(subjectFactory, scenario)?.assert ?? this.failFastAssert
+		const keyboard = await this.createKeyboard(subjectFactory)
+
+		keyboard.pressKey('q')
+		keyboard.pressKey('e')
+		keyboard.pressKey('r')
+		const afterFirstRelease = keyboard.releaseKey('q')
+		const afterSecondRelease = keyboard.releaseKey('e')
+		const heldAfterFirstRelease = afterFirstRelease.heldPitches.map((pitch) => pitch.noteLabel).join(', ')
+		const heldAfterSecondRelease = afterSecondRelease.heldPitches.map((pitch) => pitch.noteLabel).join(', ')
+		const finalActiveNote = afterSecondRelease.activePitch?.noteLabel ?? 'none'
+
+		assert(heldAfterFirstRelease === 'E4, F4', 'Expected releasing Q to keep only E4 and F4 held')
+		assert(heldAfterSecondRelease === 'F4', 'Expected releasing E next to keep only F4 held')
+		assert(finalActiveNote === 'F4', 'Expected F4 to remain active after earlier chord keys are released')
+		return { heldAfterFirstRelease, heldAfterSecondRelease, finalActiveNote }
+	}
+
 	@Spec('Creates a keyboard subject through the runner when available or directly otherwise.')
 	private static async createKeyboard(subjectFactory: SubjectFactory<QwertyKeyboard>): Promise<QwertyKeyboard> {
 		if (typeof subjectFactory === 'function') {
