@@ -38,9 +38,9 @@ export class StartTest extends LitElement {
 
 	@Scenario('renders app-root into #app when container exists')
 	static async rendersAppIntoContainer(input = {}, assert: AssertFn, waitFor: WaitForFn): Promise<{ renderedTagName: string }> {
-		await this.getRenderedPanel(waitFor)
-		const root = document.querySelector<HTMLElement>('#app')
-		assert(root !== null, 'Expected document #app container to be available')
+		const panel = await this.getRenderedPanel(waitFor)
+		const root = this.ensureAppContainer(panel)
+		assert(root.id === 'app', 'Expected behavioral test host to use the #app id')
 
 		new Start()
 		await waitFor(() => root.querySelector('app-root') !== null, 'Expected Start bootstrap to render app-root into #app')
@@ -58,6 +58,27 @@ export class StartTest extends LitElement {
 		}
 		await panel.updateComplete
 		return panel
+	}
+
+	@Spec('Creates or resets an #app container outside Lit-managed DOM for Start scenarios.')
+	private static ensureAppContainer(panel: StartTest): HTMLElement {
+		const staleRoots = Array.from(document.querySelectorAll<HTMLElement>('#app'))
+		for (const root of staleRoots) {
+			if (panel.contains(root) === false) {
+				root.remove()
+			}
+		}
+
+		const existingExternalRoot = Array.from(document.querySelectorAll<HTMLElement>('#app')).find((root) => panel.contains(root) === false)
+		if (existingExternalRoot !== undefined) {
+			existingExternalRoot.replaceChildren()
+			return existingExternalRoot
+		}
+
+		const root = document.createElement('div')
+		root.id = 'app'
+		document.body.append(root)
+		return root
 	}
 
 	@Spec('Selects the best currently rendered Start test panel.')

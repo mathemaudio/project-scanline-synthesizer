@@ -1,0 +1,194 @@
+import './PrimitiveSynth.lll'
+import { AssertFn, Scenario, Spec, WaitForFn } from '@shared/lll.lll'
+import { PrimitiveSynth } from './PrimitiveSynth.lll'
+
+@Spec('Covers the primitive sine-wave synth engine with deterministic unit scenarios.')
+export class PrimitiveSynthTest {
+	testType = "unit"
+
+	@Scenario('starts a sine voice with a short attack envelope')
+	static async startsSineVoiceWithAttackEnvelope(
+		input = {},
+		assert: AssertFn,
+		waitFor: WaitForFn
+	): Promise<{ oscillatorType: string, frequencyHz: number }> {
+		const harness = this.createAudioHarness()
+		const states: string[] = []
+		const synth = new PrimitiveSynth({
+			createAudioContext: () => harness.audioContext,
+			onStateChange: (state) => states.push(state),
+			scheduleTimeout: harness.scheduleTimeout,
+			cancelTimeout: harness.cancelTimeout
+		})
+
+		const started = await synth.startNote()
+		await waitFor(() => harness.oscillatorStates.length === 1, 'Expected synth start to create one oscillator')
+		assert(started === true, 'Expected synth start to succeed with a stubbed audio context')
+		assert(harness.resumeCalls === 1, 'Expected synth start to resume a suspended audio context once')
+		assert(harness.oscillatorStates[0].type === 'sine', 'Expected oscillator type to be sine')
+		assert(harness.oscillatorStates[0].frequencyHz === 440, 'Expected default oscillator frequency to be 440 Hz')
+		assert(
+			harness.gainEvents.some((event) => event.method === 'linearRampToValueAtTime' && event.value === 0.18),
+			'Expected synth start to schedule an attack ramp toward the target gain'
+		)
+		assert(states[states.length - 1] === 'playing', 'Expected final emitted state after start to be playing')
+		return {
+			oscillatorType: harness.oscillatorStates[0].type,
+			frequencyHz: harness.oscillatorStates[0].frequencyHz
+		}
+	}
+
+	@Scenario('release and retrigger stop cleanly without losing the ability to play again')
+	static async releasesAndRetriggersWithoutBreaking(
+		input = {},
+		assert: AssertFn,
+		waitFor: WaitForFn
+	): Promise<{ oscillatorCount: number, finalState: string }> {
+		const harness = this.createAudioHarness()
+		const states: string[] = []
+		const synth = new PrimitiveSynth({
+			createAudioContext: () => harness.audioContext,
+			onStateChange: (state) => states.push(state),
+			scheduleTimeout: harness.scheduleTimeout,
+			cancelTimeout: harness.cancelTimeout
+		})
+
+		await synth.startNote()
+		const released = synth.releaseNote()
+		assert(released === true, 'Expected releaseNote to succeed after a note is started')
+		assert(states[states.length - 1] === 'releasing', 'Expected releaseNote to emit a releasing state immediately')
+		assert(harness.oscillatorStates[0].stopTimes.length === 1, 'Expected release to schedule one oscillator stop time')
+		assert(
+			harness.gainEvents.some((event) => event.method === 'exponentialRampToValueAtTime' && event.value === 0.0001),
+			'Expected release to schedule an exponential fade toward silence'
+		)
+
+		harness.runScheduledTimeouts()
+		await waitFor(() => states[states.length - 1] === 'ready', 'Expected scheduled ready-state callback to run after release')
+		await synth.startNote()
+		await waitFor(() => harness.oscillatorStates.length === 2, 'Expected retrigger to create a fresh oscillator after release')
+		assert(harness.oscillatorStates.length === 2, 'Expected retrigger to create a second oscillator')
+		assert(states[states.length - 1] === 'playing', 'Expected synth to return to playing after retriggering')
+		return { oscillatorCount: harness.oscillatorStates.length, finalState: states[states.length - 1] }
+	}
+
+	@Spec('Creates a deterministic fake AudioContext and timeout scheduler for synth unit scenarios.')
+	private static createAudioHarness(): {
+		audioContext: AudioContext
+		resumeCalls: number
+		oscillatorStates: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[] }[]
+		gainEvents: { method: string, value: number, time: number }[]
+		scheduleTimeout: (callback: () => void, delayMs: number) => number
+		cancelTimeout: (timeoutId: number) => void
+		runScheduledTimeouts: () => void
+	} {
+		let resumeCalls = 0
+		let nextTimeoutId = 1
+		const oscillatorStates: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[] }[] = []
+		const gainEvents: { method: string, value: number, time: number }[] = []
+		const scheduledTimeouts: { id: number, callback: () => void, canceled: boolean }[] = []
+		let contextState: 'running' | 'suspended' | 'closed' = 'suspended'
+		const destination = {}
+
+		const audioContext = {
+			currentTime: 4,
+			get state() {
+				return contextState
+			},
+			destination,
+			resume: async () => {
+				resumeCalls += 1
+				contextState = 'running'
+				return undefined
+			},
+			createGain: () => {
+				const gain = {
+					value: 0.0001,
+					cancelScheduledValues: (_time: number) => undefined,
+					setValueAtTime: (value: number, time: number) => {
+						gain.value = value
+						gainEvents.push({ method: 'setValueAtTime', value, time })
+					},
+					linearRampToValueAtTime: (value: number, time: number) => {
+						gain.value = value
+						gainEvents.push({ method: 'linearRampToValueAtTime', value, time })
+					},
+					exponentialRampToValueAtTime: (value: number, time: number) => {
+						gain.value = value
+						gainEvents.push({ method: 'exponentialRampToValueAtTime', value, time })
+					}
+				}
+				return {
+					gain,
+					connect: (_destinationNode: unknown) => undefined,
+					disconnect: () => undefined
+				}
+			},
+			createOscillator: () => {
+				const oscillatorState: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[] } = {
+					type: 'sine',
+					frequencyHz: 440,
+					startTimes: [] as number[],
+					stopTimes: [] as number[]
+				}
+				oscillatorStates.push(oscillatorState)
+				const oscillator = {
+					get type() {
+						return oscillatorState.type
+					},
+					set type(value: OscillatorType) {
+						oscillatorState.type = value
+					},
+					frequency: {
+						get value() {
+							return oscillatorState.frequencyHz
+						},
+						set value(value: number) {
+							oscillatorState.frequencyHz = value
+						}
+					},
+					onended: null as ((event: Event) => void) | null,
+					connect: (_destinationNode: unknown) => undefined,
+					disconnect: () => undefined,
+					start: (time?: number) => {
+						oscillatorState.startTimes.push(time ?? 0)
+					},
+					stop: (time?: number) => {
+						oscillatorState.stopTimes.push(time ?? 0)
+						oscillator.onended?.(new Event('ended'))
+					}
+				}
+				return oscillator
+			}
+		} as unknown as AudioContext
+
+		return {
+			audioContext,
+			get resumeCalls() {
+				return resumeCalls
+			},
+			oscillatorStates,
+			gainEvents,
+			scheduleTimeout: (callback: () => void, _delayMs: number) => {
+				const timeoutId = nextTimeoutId
+				nextTimeoutId += 1
+				scheduledTimeouts.push({ id: timeoutId, callback, canceled: false })
+				return timeoutId
+			},
+			cancelTimeout: (timeoutId: number) => {
+				const timeout = scheduledTimeouts.find((candidate) => candidate.id === timeoutId)
+				if (timeout !== undefined) {
+					timeout.canceled = true
+				}
+			},
+			runScheduledTimeouts: () => {
+				for (const timeout of scheduledTimeouts) {
+					if (timeout.canceled === false) {
+						timeout.callback()
+						timeout.canceled = true
+					}
+				}
+			}
+		}
+	}
+}

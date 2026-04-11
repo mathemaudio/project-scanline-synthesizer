@@ -1,23 +1,29 @@
 import './App.lll'
-import { LitElement, css, html, type TemplateResult } from 'lit'
-import { customElement, state } from 'lit/decorators.js'
-import { Bridge } from '@shared/Bridge.lll'
+import { LitElement, css, html, render, type TemplateResult } from 'lit'
+import { customElement } from 'lit/decorators.js'
 import { AssertFn, Scenario, Spec, WaitForFn } from '@shared/lll.lll'
 import { App } from './App.lll'
 
-@Spec('Renders a playground that calls shared typed API endpoints.')
-@customElement('api-playground')
+@Spec('Exercises the phase-one Scanline Synth UI through visible controls only.')
+@customElement('app-test-panel')
 export class AppTest extends LitElement {
 	testType = "behavioral"
 	private static activeInstance: AppTest | null = null
 
-	@Spec('Tracks the currently connected playground instance for scenario reuse.')
+	static styles = css`
+		:host {
+			display: block;
+			padding: 8px;
+		}
+	`
+
+	@Spec('Tracks the currently connected App test panel for behavioral scenario reuse.')
 	connectedCallback() {
 		super.connectedCallback()
 		AppTest.activeInstance = this
 	}
 
-	@Spec('Clears tracked playground instance when it disconnects.')
+	@Spec('Clears the tracked App test panel when it disconnects.')
 	disconnectedCallback() {
 		if (AppTest.activeInstance === this) {
 			AppTest.activeInstance = null
@@ -25,421 +31,186 @@ export class AppTest extends LitElement {
 		super.disconnectedCallback()
 	}
 
-
-	@Scenario('A greeting via the server')
-	static async greetingOfFrankZappa(input = {}, assert: AssertFn, waitFor: WaitForFn): Promise<{ helloResponse: string }> {
-		const mounted = await this.getRenderedPlayground(waitFor)
-		const helloInput = mounted.shadowRoot?.querySelector<HTMLInputElement>('input[placeholder="Enter a name"]')
-		assert(helloInput !== null && helloInput !== undefined, 'Expected hello name input to be rendered')
-		await this.setInputValue(mounted, helloInput, 'Frank Zappa')
-
-		await this.clickButtonByText(mounted, 'Hello')
-		await waitFor(() => this.readStatusValue(mounted, 'Hello response') === 'Hi, Frank Zappa!', 'Expected hello response to render Frank Zappa greeting')
-
-		const helloResponse = this.readStatusValue(mounted, 'Hello response')
-		assert(helloResponse === 'Hi, Frank Zappa!', 'Expected exactly "Hi, Frank Zappa!"')
-		return { helloResponse }
+	@Spec('Renders the app host used to mount app-root for behavioral scenarios.')
+	render(): TemplateResult {
+		return html`<div id="app-host"><app-root></app-root></div>`
 	}
 
-	@Scenario('Multiplies large numbers on the server')
-	static async multiplyBigNumbersViaUIControls(input = {}, assert: AssertFn, waitFor: WaitForFn): Promise<{ multiplyResponse: string }> {
-		const mounted = await this.getRenderedPlayground(waitFor)
-		const numberInputs = Array.from(mounted.shadowRoot?.querySelectorAll<HTMLInputElement>('input[type="number"]') ?? [])
-		assert(numberInputs.length >= 2, 'Expected multiply inputs to be rendered')
+	@Scenario('play tone shows the phase-one note as playing')
+	static async startsToneThroughVisibleControls(input = {}, assert: AssertFn, waitFor: WaitForFn): Promise<{ noteState: string, triggerCount: string }> {
+		this.installAudioContextStub()
+		const app = await this.getRenderedApp(waitFor)
+		assert(this.readTextById(app, 'waveform-value') === 'Sine', 'Expected waveform card to show Sine')
+		await this.clickButtonById(app, 'play-tone-button')
+		await waitFor(() => this.readTextById(app, 'note-state-value') === 'Playing', 'Expected note state to show Playing after clicking Play tone')
+		const noteState = this.readTextById(app, 'note-state-value')
+		const triggerCount = this.readTextById(app, 'trigger-count-value')
+		assert(noteState === 'Playing', 'Expected note state to equal Playing')
+		assert(triggerCount === '1', 'Expected visible trigger count to equal 1 after first play')
+		assert(this.isButtonDisabled(app, 'release-tone-button') === false, 'Expected Release tone button to be enabled while playing')
+		return { noteState, triggerCount }
+	}
 
-		await this.setInputValue(mounted, numberInputs[0], '12345')
-		await this.setInputValue(mounted, numberInputs[1], '67890')
-		await this.clickButtonByText(mounted, 'Multiply')
+	@Scenario('release tone fades out and returns the UI to ready')
+	static async releasesToneThroughVisibleControls(
+		input = {},
+		assert: AssertFn,
+		waitFor: WaitForFn
+	): Promise<{ noteStateAfterRelease: string }> {
+		this.installAudioContextStub()
+		const app = await this.getRenderedApp(waitFor)
+		await this.clickButtonById(app, 'play-tone-button')
+		await waitFor(() => this.readTextById(app, 'note-state-value') === 'Playing', 'Expected note to start playing before release')
+		await this.clickButtonById(app, 'release-tone-button')
+		await waitFor(() => this.readTextById(app, 'note-state-value') === 'Releasing', 'Expected note state to show Releasing immediately after release')
+		await waitFor(() => this.readTextById(app, 'note-state-value') === 'Ready to play', 'Expected note state to return to Ready to play after release settles')
+		const noteStateAfterRelease = this.readTextById(app, 'note-state-value')
+		assert(noteStateAfterRelease === 'Ready to play', 'Expected release flow to restore Ready to play state')
+		assert(this.isButtonDisabled(app, 'release-tone-button') === true, 'Expected Release tone button to be disabled after note-off settles')
+		return { noteStateAfterRelease }
+	}
+
+	@Scenario('retriggering the tone increments the visible trigger count')
+	static async retriggersToneThroughVisibleControls(
+		input = {},
+		assert: AssertFn,
+		waitFor: WaitForFn
+	): Promise<{ triggerCount: string }> {
+		this.installAudioContextStub()
+		const app = await this.getRenderedApp(waitFor)
+		const initialTriggerCount = Number(this.readTextById(app, 'trigger-count-value'))
+		await this.clickButtonById(app, 'play-tone-button')
+		await waitFor(() => this.readTextById(app, 'note-state-value') === 'Playing', 'Expected first click to place the note in Playing state')
 		await waitFor(
-			() => this.readStatusValue(mounted, 'Multiply response') === '12345 × 67890 = 838102050',
-			'Expected multiply response to render the computed product',
+			() => Number(this.readTextById(app, 'trigger-count-value')) === initialTriggerCount + 1,
+			'Expected first click to increase the visible trigger count by one'
 		)
-
-		const multiplyResponse = this.readStatusValue(mounted, 'Multiply response')
-		assert(
-			multiplyResponse === '12345 × 67890 = 838102050',
-			'Expected exactly "12345 × 67890 = 838102050"',
+		await this.clickButtonById(app, 'play-tone-button')
+		await waitFor(
+			() => Number(this.readTextById(app, 'trigger-count-value')) === initialTriggerCount + 2,
+			'Expected second click to increase the visible trigger count by two total'
 		)
-		return { multiplyResponse }
+		const triggerCount = this.readTextById(app, 'trigger-count-value')
+		assert(Number(triggerCount) === initialTriggerCount + 2, 'Expected visible trigger count to rise by two after retriggering')
+		assert(this.readTextById(app, 'note-state-value') === 'Playing', 'Expected note state to remain Playing after retriggering')
+		return { triggerCount }
 	}
 
-	@Spec('Finds the already-rendered behavioral playground element from the live UI.')
-	private static async getRenderedPlayground(waitFor: WaitForFn): Promise<AppTest> {
-		await waitFor(() => this.findBestRenderedPlayground() !== null, 'Expected api-playground to be rendered before scenario actions')
-		const element = this.findBestRenderedPlayground()
-		if (element === null) {
-			throw new Error('Expected an already-rendered api-playground element')
+	@Spec('Finds the on-screen App instance and remounts it in place for each scenario.')
+	private static async getRenderedApp(waitFor: WaitForFn): Promise<App> {
+		await waitFor(() => this.findBestRenderedPanel() !== null, 'Expected app-test-panel to be rendered before scenario actions')
+		const panel = this.findBestRenderedPanel()
+		if (panel === null) {
+			throw new Error('Expected an already-rendered app-test-panel element')
 		}
-		await element.updateComplete
-		return element
+		await panel.updateComplete
+		const host = panel.shadowRoot?.querySelector<HTMLElement>('#app-host')
+		if (!host) {
+			throw new Error('App host not found in rendered app-test-panel')
+		}
+		render(html``, host)
+		render(html`<app-root></app-root>`, host)
+		const app = host.querySelector<App>('app-root')
+		if (!app) {
+			throw new Error('Failed to render app-root in App host')
+		}
+		await app.updateComplete
+		return app
 	}
 
-	@Spec('Selects the best currently rendered playground, preferring visible active instance.')
-	private static findBestRenderedPlayground(): AppTest | null {
+	@Spec('Selects the best currently rendered App test panel, preferring the active visible instance.')
+	private static findBestRenderedPanel(): AppTest | null {
 		if (this.activeInstance !== null && this.activeInstance.isConnected) {
 			return this.activeInstance
 		}
 
-		const allPlaygrounds = Array.from(document.querySelectorAll<AppTest>('api-playground'))
-		const visiblePlayground = allPlaygrounds.find((element) => element.isConnected && element.getClientRects().length > 0)
-		if (visiblePlayground !== undefined) {
-			return visiblePlayground
+		const panels = Array.from(document.querySelectorAll<AppTest>('app-test-panel'))
+		const visiblePanel = panels.find((element) => element.isConnected && element.getClientRects().length > 0)
+		if (visiblePanel !== undefined) {
+			return visiblePanel
 		}
-		return allPlaygrounds.find((element) => element.isConnected) ?? null
+		return panels.find((element) => element.isConnected) ?? null
 	}
 
-	@Spec('Recognizes Lit template-like render results without using any casts.')
-	private static isTemplateLike(value: unknown): value is { strings: readonly string[] } {
-		if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-			return false
-		}
-
-		const candidate = value as { strings?: unknown }
-		return Array.isArray(candidate.strings)
+	@Spec('Installs a minimal AudioContext stub so behavioral UI tests never depend on real device audio.')
+	private static installAudioContextStub() {
+		const maybeGlobal = globalThis as Record<string, unknown>
+		const audioContextConstructor = function AudioContextStub() {
+			const destination = {}
+			let contextState: 'running' | 'suspended' | 'closed' = 'suspended'
+			return {
+				currentTime: 0,
+				state: contextState,
+				destination,
+				resume: async () => {
+					contextState = 'running'
+					return undefined
+				},
+				createGain: () => {
+					const gain = {
+						value: 0.0001,
+						cancelScheduledValues: (_time: number) => undefined,
+						setValueAtTime: (value: number, _time: number) => {
+							gain.value = value
+						},
+						linearRampToValueAtTime: (value: number, _time: number) => {
+							gain.value = value
+						},
+						exponentialRampToValueAtTime: (value: number, _time: number) => {
+							gain.value = value
+						}
+					}
+					return {
+						gain,
+						connect: (_destinationNode: unknown) => undefined,
+						disconnect: () => undefined
+					}
+				},
+				createOscillator: () => {
+					const oscillator = {
+						type: 'sine',
+						frequency: { value: 440 },
+						onended: null as ((event: Event) => void) | null,
+						connect: (_destinationNode: unknown) => undefined,
+						disconnect: () => undefined,
+						start: (_time?: number) => undefined,
+						stop: (_time?: number) => {
+							oscillator.onended?.(new Event('ended'))
+						}
+					}
+					return oscillator
+				}
+			}
+		} as unknown as new () => AudioContext
+		maybeGlobal['AudioContext'] = audioContextConstructor
+		maybeGlobal['webkitAudioContext'] = audioContextConstructor
 	}
 
-	@Spec('Sets an input value and dispatches a user-like input event.')
-	private static async setInputValue(root: AppTest, inputElement: HTMLInputElement, value: string) {
-		inputElement.value = value
-		inputElement.dispatchEvent(new Event('input', { bubbles: true }))
-		await root.updateComplete
-	}
-
-	@Spec('Clicks a button by visible text content within the playground.')
-	private static async clickButtonByText(root: AppTest, text: string) {
-		const buttons = Array.from(root.shadowRoot?.querySelectorAll<HTMLButtonElement>('button') ?? [])
-		const button = buttons.find((candidate) => candidate.textContent?.trim() === text)
+	@Spec('Clicks a button inside app-root by a stable id and waits for Lit to settle.')
+	private static async clickButtonById(app: App, buttonId: string) {
+		const button = app.shadowRoot?.querySelector<HTMLButtonElement>(`#${buttonId}`)
 		if (!button) {
-			throw new Error(`Button not found: ${text}`)
+			throw new Error(`Button not found: ${buttonId}`)
 		}
 		button.click()
-		await root.updateComplete
+		await app.updateComplete
 	}
 
-	@Spec('Reads the content value of a status panel by its visible label.')
-	private static readStatusValue(root: AppTest, label: string): string {
-		const statusBlocks = Array.from(root.shadowRoot?.querySelectorAll<HTMLElement>('.status') ?? [])
-		for (const block of statusBlocks) {
-			const labelElement = block.querySelector<HTMLElement>('.status-label')
-			if (labelElement?.textContent?.trim() === label) {
-				const valueElements = Array.from(block.children).filter((child) =>
-					!(child as HTMLElement).classList.contains('status-label'),
-				)
-				const valueText = valueElements.map((element) => element.textContent?.trim() ?? '').join(' ').trim()
-				return valueText
-			}
+	@Spec('Reads visible text content from a stable element id inside app-root.')
+	private static readTextById(app: App, elementId: string): string {
+		const element = app.shadowRoot?.querySelector<HTMLElement>(`#${elementId}`)
+		if (!element) {
+			throw new Error(`Element not found: ${elementId}`)
 		}
-		throw new Error(`Status block not found: ${label}`)
+		return element.textContent?.trim() ?? ''
 	}
 
-	readonly app: App | undefined
-	static styles = css`
-		:host {
-			display: block;
-			margin: 0;
-			padding: 0;
-			color: #f5f7fb;
-			font-family: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+	@Spec('Returns whether a button is currently disabled in the rendered App UI.')
+	private static isButtonDisabled(app: App, buttonId: string): boolean {
+		const button = app.shadowRoot?.querySelector<HTMLButtonElement>(`#${buttonId}`)
+		if (!button) {
+			throw new Error(`Button not found: ${buttonId}`)
 		}
-
-		main {
-			max-width: 900px;
-			margin: 0 auto;
-			padding: 16px 20px 12px;
-			display: grid;
-			gap: 24px;
-		}
-
-		.hero {
-			text-align: center;
-		}
-
-		p.lead {
-			margin: 0;
-			color: rgba(245, 247, 251, 0.82);
-		}
-
-		.panel {
-			background: rgba(8, 11, 20, 0.7);
-			backdrop-filter: blur(10px);
-			border: 1px solid rgba(255, 255, 255, 0.08);
-			border-radius: 18px;
-			padding: 20px;
-			display: grid;
-			gap: 12px;
-			box-shadow: 0 16px 60px rgba(0, 0, 0, 0.35);
-		}
-
-		.panel h2 {
-			margin: 0;
-			font-size: 1.2rem;
-			letter-spacing: -0.01em;
-		}
-
-		.inputs {
-			display: grid;
-			gap: 12px;
-		}
-
-		.input-grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-			gap: 12px;
-		}
-
-		label {
-			display: grid;
-			gap: 6px;
-			font-size: 0.86rem;
-			color: rgba(245, 247, 251, 0.84);
-		}
-
-		input {
-			width: 100%;
-			box-sizing: border-box;
-			padding: 10px 12px;
-			border-radius: 10px;
-			border: 1px solid rgba(255, 255, 255, 0.18);
-			background: rgba(255, 255, 255, 0.08);
-			color: #f5f7fb;
-			font-size: 0.96rem;
-		}
-
-		input:focus {
-			outline: 2px solid rgba(107, 154, 253, 0.85);
-			outline-offset: 1px;
-		}
-
-		.actions {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-			gap: 16px;
-		}
-
-		button {
-			width: 100%;
-			padding: 14px 16px;
-			border-radius: 14px;
-			border: 1px solid rgba(255, 255, 255, 0.12);
-			background: linear-gradient(135deg, #2e6df6, #6b9afd);
-			color: white;
-			font-size: 1rem;
-			font-weight: 700;
-			cursor: pointer;
-			transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
-		}
-
-		button.secondary {
-			background: linear-gradient(135deg, #2ac3a2, #6debc3);
-			color: #041015;
-			border-color: rgba(255, 255, 255, 0.18);
-		}
-
-		button:disabled {
-			opacity: 0.65;
-			cursor: not-allowed;
-			filter: grayscale(0.25);
-		}
-
-		button:not(:disabled):hover {
-			transform: translateY(-1px);
-			box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-		}
-
-		.status {
-			display: grid;
-			gap: 8px;
-			padding: 12px 14px;
-			border-radius: 12px;
-			background: rgba(255, 255, 255, 0.06);
-			border: 1px solid rgba(255, 255, 255, 0.08);
-		}
-
-		.status-label {
-			text-transform: uppercase;
-			font-size: 0.75rem;
-			letter-spacing: 0.1em;
-			color: rgba(245, 247, 251, 0.7);
-		}
-
-		.error {
-			color: #ffd5d5;
-			background: rgba(139, 0, 28, 0.24);
-			border-color: rgba(255, 120, 141, 0.45);
-		}
-	`
-
-	private readonly apiBaseUrl = (import.meta.env as ImportMetaEnv & { VITE_API_BASE_URL?: string }).VITE_API_BASE_URL ?? ''
-
-	@state()
-	private helloResponse: string = ''
-
-	@state()
-	private multiplyResponse: string = ''
-
-	@state()
-	private loading: 'hello' | 'multiply' | null = null
-
-	@state()
-	private error: string | null = null
-
-	@state()
-	private helloNameInput: string = ''
-
-	@state()
-	private multiplyAInput: string = ''
-
-	@state()
-	private multiplyBInput: string = ''
-
-	constructor() {
-		Spec('Initializes randomized playground inputs for hello and multiply requests.')
-		super()
-		this.helloNameInput = this.randomName()
-		this.multiplyAInput = String(this.randomNumber())
-		this.multiplyBInput = String(this.randomNumber())
-	}
-
-	@Spec('Returns a random name for hello endpoint requests.')
-	private randomName(): string {
-		const names = ['Ada', 'Lin', 'Nova', 'Riley', 'Sam', 'Indigo', 'Mara', 'Theo', 'Quinn', 'Sage']
-		const index = Math.floor(Math.random() * names.length)
-		return names[index]
-	}
-
-	@Spec('Returns a random integer for multiply endpoint requests.')
-	private randomNumber(): number {
-		return Math.floor(Math.random() * 10) + 1
-	}
-
-	@Spec('Updates the editable name used by the hello request.')
-	private onHelloNameInput(event: Event) {
-		this.helloNameInput = (event.target as HTMLInputElement).value
-	}
-
-	@Spec('Updates the first editable number used by the multiply request.')
-	private onMultiplyAInput(event: Event) {
-		this.multiplyAInput = (event.target as HTMLInputElement).value
-	}
-
-	@Spec('Updates the second editable number used by the multiply request.')
-	private onMultiplyBInput(event: Event) {
-		this.multiplyBInput = (event.target as HTMLInputElement).value
-	}
-
-	@Spec('Calls the hello endpoint and stores the response state.')
-	private async callHello() {
-		this.loading = 'hello'
-		this.error = null
-		const name = this.helloNameInput.trim()
-
-		if (!name) {
-			this.error = 'Please enter a name.'
-			this.loading = null
-			return
-		}
-
-		try {
-			const response = await Bridge.typedFetch('/api/hello', { name }, { baseUrl: this.apiBaseUrl })
-			this.helloResponse = response
-		} catch (error) {
-			this.error = error instanceof Error ? error.message : 'Request failed'
-		} finally {
-			this.loading = null
-		}
-	}
-
-	@Spec('Calls the multiply endpoint and stores the response state.')
-	private async callMultiply() {
-		this.loading = 'multiply'
-		this.error = null
-		const a = Number(this.multiplyAInput)
-		const b = Number(this.multiplyBInput)
-
-		if (!Number.isFinite(a) || !Number.isFinite(b)) {
-			this.error = 'Please enter valid numbers for multiplication.'
-			this.loading = null
-			return
-		}
-
-		try {
-			const response = await Bridge.typedFetch('/api/multiply', { a, b }, { baseUrl: this.apiBaseUrl })
-			this.multiplyResponse = `${a} × ${b} = ${response.product}`
-		} catch (error) {
-			this.error = error instanceof Error ? error.message : 'Request failed'
-		} finally {
-			this.loading = null
-		}
-	}
-
-	@Spec('Renders the API playground interface and current status values.')
-	render(): TemplateResult {
-		return html`
-			<main>
-				<section class="hero">
-						<p class="lead">Call the Hello and Multiply endpoints through the shared typed client.</p>
-				</section>
-
-				<section class="panel">
-					<h2>Try the endpoints</h2>
-					<div class="inputs">
-						<label>
-							Hello name
-							<input
-								type="text"
-								placeholder="Enter a name"
-								.value=${this.helloNameInput}
-								@input=${this.onHelloNameInput}
-							/>
-						</label>
-						<div class="input-grid">
-							<label>
-								Multiply A
-								<input
-									type="number"
-									step="any"
-									.value=${this.multiplyAInput}
-									@input=${this.onMultiplyAInput}
-								/>
-							</label>
-							<label>
-								Multiply B
-								<input
-									type="number"
-									step="any"
-									.value=${this.multiplyBInput}
-									@input=${this.onMultiplyBInput}
-								/>
-							</label>
-						</div>
-					</div>
-					<div class="actions">
-						<button ?disabled=${this.loading !== null} @click=${this.callHello}>
-							${this.loading === 'hello' ? 'Calling Hello…' : 'Hello'}
-						</button>
-						<button class="secondary" ?disabled=${this.loading !== null} @click=${this.callMultiply}>
-							${this.loading === 'multiply' ? 'Calculating…' : 'Multiply'}
-						</button>
-					</div>
-
-					<div class="status">
-						<div class="status-label">Hello response</div>
-						<div>${this.helloResponse || '—'}</div>
-					</div>
-
-					<div class="status">
-						<div class="status-label">Multiply response</div>
-						<div>${this.multiplyResponse || '—'}</div>
-					</div>
-
-					${this.error !== null
-				? html`<div class="status error">
-								<div class="status-label">Error</div>
-								<div>${this.error}</div>
-							</div>`
-				: null}
-				</section>
-			</main>
-		`
+		return button.disabled
 	}
 }
