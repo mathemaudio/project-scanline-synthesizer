@@ -6,7 +6,7 @@ import { PrimitiveSynth } from './PrimitiveSynth.lll'
 export class PrimitiveSynthTest {
 	testType = "unit"
 
-	@Scenario('starts a sine voice with a short attack envelope')
+	@Scenario('starts a sine voice with a short attack envelope at the requested keyboard pitch')
 	static async startsSineVoiceWithAttackEnvelope(
 		input = {},
 		assert: AssertFn,
@@ -21,12 +21,12 @@ export class PrimitiveSynthTest {
 			cancelTimeout: harness.cancelTimeout
 		})
 
-		const started = await synth.startNote()
+		const started = await synth.startNote(261.6255653005986)
 		await waitFor(() => harness.oscillatorStates.length === 1, 'Expected synth start to create one oscillator')
 		assert(started === true, 'Expected synth start to succeed with a stubbed audio context')
 		assert(harness.resumeCalls === 1, 'Expected synth start to resume a suspended audio context once')
 		assert(harness.oscillatorStates[0].type === 'sine', 'Expected oscillator type to be sine')
-		assert(harness.oscillatorStates[0].frequencyHz === 440, 'Expected default oscillator frequency to be 440 Hz')
+		assert(harness.oscillatorStates[0].frequencyHz === 261.6255653005986, 'Expected requested keyboard pitch to be applied to the oscillator frequency')
 		assert(
 			harness.gainEvents.some((event) => event.method === 'linearRampToValueAtTime' && event.value === 0.18),
 			'Expected synth start to schedule an attack ramp toward the target gain'
@@ -65,9 +65,10 @@ export class PrimitiveSynthTest {
 
 		harness.runScheduledTimeouts()
 		await waitFor(() => states[states.length - 1] === 'ready', 'Expected scheduled ready-state callback to run after release')
-		await synth.startNote()
+		await synth.startNote(293.6647679174076)
 		await waitFor(() => harness.oscillatorStates.length === 2, 'Expected retrigger to create a fresh oscillator after release')
 		assert(harness.oscillatorStates.length === 2, 'Expected retrigger to create a second oscillator')
+		assert(harness.oscillatorStates[1].frequencyHz === 293.6647679174076, 'Expected retrigger to allow a new keyboard pitch to be played')
 		assert(states[states.length - 1] === 'playing', 'Expected synth to return to playing after retriggering')
 		return { oscillatorCount: harness.oscillatorStates.length, finalState: states[states.length - 1] }
 	}

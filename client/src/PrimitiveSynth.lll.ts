@@ -4,7 +4,7 @@ import { Spec } from '@shared/lll.lll'
 export class PrimitiveSynth {
 	private readonly attackDurationSeconds: number
 	private readonly releaseDurationSeconds: number
-	private readonly frequencyHz: number
+	private readonly defaultFrequencyHz: number
 	private readonly createAudioContext: () => AudioContext | null
 	private readonly onStateChange: ((state: 'ready' | 'playing' | 'releasing' | 'unsupported') => void) | null
 	private readonly scheduleTimeout: (callback: () => void, delayMs: number) => number
@@ -12,6 +12,7 @@ export class PrimitiveSynth {
 	private audioContext: AudioContext | null = null
 	private activeVoice: { oscillator: OscillatorNode, gainNode: GainNode } | null = null
 	private pendingReadyTimeoutId: number | null = null
+	private requestVersion: number = 0
 
 	constructor(
 		options: {
@@ -27,7 +28,7 @@ export class PrimitiveSynth {
 		Spec('Configures the primitive synth with audio creation hooks and short envelope timings.')
 		this.attackDurationSeconds = options.attackDurationSeconds ?? 0.04
 		this.releaseDurationSeconds = options.releaseDurationSeconds ?? 0.12
-		this.frequencyHz = options.frequencyHz ?? 440
+		this.defaultFrequencyHz = options.frequencyHz ?? 440
 		this.createAudioContext = options.createAudioContext ?? (() => this.createBrowserAudioContext())
 		this.onStateChange = options.onStateChange ?? null
 		this.scheduleTimeout = options.scheduleTimeout ?? ((callback, delayMs) => globalThis.setTimeout(callback, delayMs))
@@ -35,7 +36,9 @@ export class PrimitiveSynth {
 	}
 
 	@Spec('Starts or retriggers the synth note with a sine oscillator and short attack envelope.')
-	async startNote(): Promise<boolean> {
+	async startNote(frequencyHz: number = this.defaultFrequencyHz): Promise<boolean> {
+		const requestVersion = this.requestVersion + 1
+		this.requestVersion = requestVersion
 		const audioContext = this.ensureAudioContext()
 		if (audioContext === null) {
 			this.emitStateChange('unsupported')
@@ -51,6 +54,10 @@ export class PrimitiveSynth {
 			await audioContext.resume()
 		}
 
+		if (this.requestVersion !== requestVersion) {
+			return false
+		}
+
 		if (this.activeVoice !== null) {
 			this.retireVoice(this.activeVoice, audioContext.currentTime, 0.01)
 			this.activeVoice = null
@@ -59,7 +66,7 @@ export class PrimitiveSynth {
 		const oscillator = audioContext.createOscillator()
 		const gainNode = audioContext.createGain()
 		oscillator.type = 'sine'
-		oscillator.frequency.value = this.frequencyHz
+		oscillator.frequency.value = frequencyHz
 		gainNode.gain.cancelScheduledValues(audioContext.currentTime)
 		gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime)
 		gainNode.gain.linearRampToValueAtTime(0.18, audioContext.currentTime + this.attackDurationSeconds)
@@ -74,6 +81,12 @@ export class PrimitiveSynth {
 
 	@Spec('Releases the active note with an exponential fade and scheduled ready-state recovery.')
 	releaseNote(): boolean {
+		this.requestVersion += 1
+		if (this.pendingReadyTimeoutId !== null) {
+			this.cancelTimeout(this.pendingReadyTimeoutId)
+			this.pendingReadyTimeoutId = null
+		}
+
 		if (this.activeVoice === null || this.audioContext === null) {
 			return false
 		}
@@ -81,9 +94,6 @@ export class PrimitiveSynth {
 		const voice = this.activeVoice
 		this.activeVoice = null
 		this.retireVoice(voice, this.audioContext.currentTime, this.releaseDurationSeconds)
-		if (this.pendingReadyTimeoutId !== null) {
-			this.cancelTimeout(this.pendingReadyTimeoutId)
-		}
 		this.emitStateChange('releasing')
 		this.pendingReadyTimeoutId = this.scheduleTimeout(() => {
 			this.pendingReadyTimeoutId = null

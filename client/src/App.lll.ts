@@ -1,9 +1,11 @@
 import { LitElement, css, html, type TemplateResult } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
 import { Spec } from '@shared/lll.lll'
+import { KeyboardPitch } from './KeyboardPitch.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
+import { QwertyKeyboard } from './QwertyKeyboard.lll'
 
-@Spec('Renders the phase-one Scanline Synth interface around a primitive sine-wave instrument.')
+@Spec('Renders the phase-two Scanline Synth interface around a playable QWERTY keyboard sine synth.')
 @customElement('app-root')
 export class App extends LitElement {
 	static styles = css`
@@ -36,7 +38,9 @@ export class App extends LitElement {
 			backdrop-filter: blur(10px);
 		}
 
-		header {
+		header,
+		.keyboard-guide,
+		.status-grid {
 			display: grid;
 			gap: 12px;
 		}
@@ -59,60 +63,27 @@ export class App extends LitElement {
 			letter-spacing: -0.03em;
 		}
 
-		.lead {
-			max-width: 60ch;
+		.lead,
+		.detail {
 			line-height: 1.6;
-			color: rgba(232, 238, 247, 0.82);
+			color: rgba(232, 238, 247, 0.84);
 		}
 
-		.controls {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 12px;
+		.keyboard-guide {
+			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 		}
 
-		button {
-			padding: 13px 18px;
-			border-radius: 14px;
-			border: 1px solid rgba(255, 255, 255, 0.14);
-			background: linear-gradient(135deg, #7757ff, #40b4ff);
-			color: white;
-			font-size: 1rem;
-			font-weight: 700;
-			cursor: pointer;
-			transition: transform 0.12s ease, filter 0.12s ease, opacity 0.12s ease;
-		}
-
-		button.secondary {
-			background: linear-gradient(135deg, #2e3447, #171c27);
-		}
-
-		button:disabled {
-			opacity: 0.58;
-			cursor: not-allowed;
-			filter: grayscale(0.28);
-		}
-
-		button:not(:disabled):hover {
-			transform: translateY(-1px);
-			filter: brightness(1.04);
-		}
-
-		.status-grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-			gap: 12px;
-		}
-
+		.guide-card,
 		.status-card {
 			display: grid;
-			gap: 6px;
+			gap: 8px;
 			padding: 16px;
 			border-radius: 16px;
 			background: rgba(255, 255, 255, 0.06);
 			border: 1px solid rgba(255, 255, 255, 0.08);
 		}
 
+		.guide-label,
 		.status-label {
 			font-size: 0.74rem;
 			text-transform: uppercase;
@@ -120,9 +91,14 @@ export class App extends LitElement {
 			color: rgba(232, 238, 247, 0.62);
 		}
 
+		.guide-value,
 		.status-value {
-			font-size: 1.1rem;
+			font-size: 1.05rem;
 			font-weight: 700;
+		}
+
+		.status-grid {
+			grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 		}
 
 		.detail {
@@ -130,8 +106,6 @@ export class App extends LitElement {
 			border-radius: 16px;
 			background: rgba(64, 180, 255, 0.08);
 			border: 1px solid rgba(64, 180, 255, 0.18);
-			line-height: 1.6;
-			color: rgba(232, 238, 247, 0.86);
 		}
 	`
 
@@ -139,7 +113,16 @@ export class App extends LitElement {
 	private noteStateLabel: string = 'Ready to play'
 
 	@state()
-	private noteDetailText: string = 'Click Play tone to create a simple 440 Hz sine note with short attack and release shaping.'
+	private noteDetailText: string = 'Press Q through P for C4 to E5, or Z through M for C5 to B5. The upper row continues naturally into the next octave, and key release fades notes out cleanly.'
+
+	@state()
+	private activeNoteLabel: string = '—'
+
+	@state()
+	private activeKeyLabel: string = '—'
+
+	@state()
+	private pitchLabel: string = 'No active note'
 
 	@state()
 	private triggerCount: number = 0
@@ -148,80 +131,158 @@ export class App extends LitElement {
 		onStateChange: (state) => this.onSynthStateChange(state)
 	})
 
-	@Spec('Starts or retriggers the phase-one tone through the primitive synth engine.')
-	private async onPlayTone() {
-		const didStart = await this.synth.startNote()
-		if (didStart) {
-			this.triggerCount += 1
+	private readonly qwertyKeyboard = new QwertyKeyboard({
+		baseOctave: 4,
+		pitchReferenceHz: 440
+	})
+
+	private readonly onWindowKeyDownListener = (event: KeyboardEvent) => {
+		void this.onWindowKeyDown(event)
+	}
+
+	private readonly onWindowKeyUpListener = (event: KeyboardEvent) => {
+		void this.onWindowKeyUp(event)
+	}
+
+	@Spec('Connects global keyboard listeners so mapped QWERTY presses can control the synth while the app is mounted.')
+	connectedCallback() {
+		super.connectedCallback()
+		window.addEventListener('keydown', this.onWindowKeyDownListener)
+		window.addEventListener('keyup', this.onWindowKeyUpListener)
+	}
+
+	@Spec('Disconnects global keyboard listeners when the app unmounts to avoid leaked key handlers.')
+	disconnectedCallback() {
+		window.removeEventListener('keydown', this.onWindowKeyDownListener)
+		window.removeEventListener('keyup', this.onWindowKeyUpListener)
+		super.disconnectedCallback()
+	}
+
+	@Spec('Handles mapped key presses by starting or changing the active synth pitch and preventing browser interference.')
+	private async onWindowKeyDown(event: KeyboardEvent) {
+		const playState = this.qwertyKeyboard.pressKey(event.key)
+		await this.syncKeyboardChange(event, playState)
+	}
+
+	@Spec('Handles mapped key releases by triggering note-off or falling back to the next held pitch cleanly.')
+	private async onWindowKeyUp(event: KeyboardEvent) {
+		const playState = this.qwertyKeyboard.releaseKey(event.key)
+		await this.syncKeyboardChange(event, playState)
+	}
+
+	@Spec('Applies one keyboard state change to the synth and visible UI so keydown and keyup stay in sync.')
+	private async syncKeyboardChange(
+		event: KeyboardEvent,
+		playState: { consumed: boolean, didChange: boolean, activePitch: KeyboardPitch | null }
+	) {
+		if (playState.consumed && event.cancelable) {
+			event.preventDefault()
 		}
+
+		if (playState.didChange === false) {
+			return
+		}
+
+		this.updateActivePitchDisplay(playState.activePitch)
+		if (playState.activePitch === null) {
+			this.synth.releaseNote()
+			return
+		}
+
+		this.triggerCount += 1
+		await this.synth.startNote(playState.activePitch.frequencyHz)
 	}
 
-	@Spec('Releases the currently playing tone when the user requests note-off.')
-	private onReleaseTone() {
-		this.synth.releaseNote()
-	}
-
-	@Spec('Maps synth engine state changes to visible status text in the UI.')
+	@Spec('Maps synth engine state changes to visible phase-two keyboard status text in the UI.')
 	private onSynthStateChange(state: 'ready' | 'playing' | 'releasing' | 'unsupported') {
 		if (state === 'ready') {
 			this.noteStateLabel = 'Ready to play'
-			this.noteDetailText = 'The note has faded out cleanly and the synth is ready for another trigger.'
+			this.noteDetailText = 'Press Q through P for C4 to E5, or Z through M for C5 to B5. The upper row continues naturally into the next octave, and key release fades notes out cleanly.'
 			return
 		}
 
 		if (state === 'playing') {
+			const activePitch = this.qwertyKeyboard.getActivePitch()
 			this.noteStateLabel = 'Playing'
-			this.noteDetailText = 'A steady sine wave is sustaining at 440 Hz while the release button remains available.'
+			this.noteDetailText = activePitch === null
+				? 'A mapped key is driving the sine synth. Press another neighboring key to move in semitone steps.'
+				: `${activePitch.noteLabel} is sounding from the ${activePitch.keyLabel} key. Press another mapped key to move chromatically across the keyboard.`
 			return
 		}
 
 		if (state === 'releasing') {
 			this.noteStateLabel = 'Releasing'
-			this.noteDetailText = 'The current note is fading out with a short release so it stops cleanly without clicks.'
+			this.noteDetailText = 'All currently active mapped keys are up, so the note is fading out with a short release.'
 			return
 		}
 
 		this.noteStateLabel = 'Unavailable'
-		this.noteDetailText = 'This environment does not expose a browser AudioContext, so the primitive synth cannot start.'
+		this.noteDetailText = 'This environment does not expose a browser AudioContext, so the QWERTY synth cannot start.'
 	}
 
-	@Spec('Renders the phase-one primitive synth controls and visible note status.')
+	@Spec('Updates the visible active key, note, and pitch cards to match the currently selected keyboard pitch.')
+	private updateActivePitchDisplay(activePitch: KeyboardPitch | null) {
+		if (activePitch === null) {
+			this.activeKeyLabel = '—'
+			this.activeNoteLabel = '—'
+			this.pitchLabel = 'No active note'
+			return
+		}
+
+		this.activeKeyLabel = activePitch.keyLabel
+		this.activeNoteLabel = activePitch.noteLabel
+		this.pitchLabel = this.formatPitchValue(activePitch)
+	}
+
+	@Spec('Formats one mapped pitch into the visible frequency card text shown in the app UI.')
+	private formatPitchValue(activePitch: KeyboardPitch): string {
+		return `${activePitch.frequencyHz.toFixed(2)} Hz · ${activePitch.noteLabel}`
+	}
+
+	@Spec('Renders the phase-two QWERTY keyboard guide and visible synth status cards.')
 	render(): TemplateResult {
 		return html`
 			<main>
 				<header>
-					<p class="eyebrow">Phase 1 — Primitive Synth Foundation</p>
+					<p class="eyebrow">Phase 2 — Playable QWERTY Keyboard</p>
 					<h1>Scanline Synth</h1>
 					<p class="lead">
-						This first milestone proves the browser audio path with a single sine-wave note, a short attack,
-						and a clean release that can be triggered repeatedly.
+						The synth is now playable from the computer keyboard. Press mapped keys for chromatic notes,
+						release them for note-off, and use adjacent keys to step through semitone intervals.
 					</p>
 				</header>
 
-				<section class="controls" aria-label="Primitive synth controls">
-					<button id="play-tone-button" @click=${() => this.onPlayTone()}>Play tone</button>
-					<button
-						id="release-tone-button"
-						class="secondary"
-						@click=${() => this.onReleaseTone()}
-						?disabled=${this.noteStateLabel !== 'Playing'}
-					>
-						Release tone
-					</button>
+				<section class="keyboard-guide" aria-label="QWERTY keyboard mapping">
+					<div class="guide-card">
+						<div class="guide-label">Upper row</div>
+						<div id="keyboard-row-top-value" class="guide-value">Q 2 W 3 E R 5 T 6 Y 7 U I 9 O 0 P → C4 to E5</div>
+					</div>
+					<div class="guide-card">
+						<div class="guide-label">Lower row</div>
+						<div id="keyboard-row-bottom-value" class="guide-value">Z S X D C V G B H N J M → C5 to B5</div>
+					</div>
 				</section>
 
-				<section class="status-grid" aria-label="Primitive synth status">
+				<section class="status-grid" aria-label="Keyboard synth status">
 					<div class="status-card">
 						<div class="status-label">Waveform</div>
 						<div id="waveform-value" class="status-value">Sine</div>
 					</div>
 					<div class="status-card">
-						<div class="status-label">Pitch</div>
-						<div id="pitch-value" class="status-value">440 Hz · A4</div>
-					</div>
-					<div class="status-card">
 						<div class="status-label">Envelope</div>
 						<div id="envelope-value" class="status-value">40 ms attack · 120 ms release</div>
+					</div>
+					<div class="status-card">
+						<div class="status-label">Active key</div>
+						<div id="active-key-value" class="status-value">${this.activeKeyLabel}</div>
+					</div>
+					<div class="status-card">
+						<div class="status-label">Active note</div>
+						<div id="active-note-value" class="status-value">${this.activeNoteLabel}</div>
+					</div>
+					<div class="status-card">
+						<div class="status-label">Pitch</div>
+						<div id="pitch-value" class="status-value">${this.pitchLabel}</div>
 					</div>
 					<div class="status-card">
 						<div class="status-label">Note state</div>

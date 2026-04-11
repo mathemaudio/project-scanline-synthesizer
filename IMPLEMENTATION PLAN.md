@@ -79,6 +79,10 @@ Example mapping:
 * Y = A
 * 7 = A#
 * U = B
+* Z = C2
+* S = C#2
+* X = D2
+...
 
 Then continue the same pattern across the next region of the keyboard for the next octave as needed.
 
