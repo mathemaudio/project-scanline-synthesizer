@@ -10,32 +10,54 @@ import { QwertyKeyboard } from './QwertyKeyboard.lll'
 export class App extends LitElement {
 	static styles = css`
 		:host {
+			--panel-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+			--panel-border: rgba(255, 224, 168, 0.18);
+			--surface-dark: #221b15;
+			--surface-mid: #3f3128;
+			--surface-light: #8e7257;
+			--label-ink: #f5dfb0;
+			--display-green: #b8f6a9;
+			--switch-off: #5c5046;
+			--switch-on: #cf6f36;
 			display: grid;
 			min-height: 100vh;
-			padding: 28px;
+			padding: 32px;
 			box-sizing: border-box;
 			align-items: center;
 			justify-items: center;
-			color: rgb(232, 238, 247);
-			background-image:
-				linear-gradient(rgba(5, 6, 11, 0.82), rgba(10, 12, 18, 0.9)),
+			color: rgb(244, 235, 212);
+			background:
+				radial-gradient(circle at top, rgba(217, 149, 70, 0.22), transparent 36%),
+				linear-gradient(rgba(10, 7, 5, 0.58), rgba(9, 7, 6, 0.82)),
 				url('/images/bg70s/2.webp');
 			background-size: cover;
 			background-position: center;
 			background-repeat: no-repeat;
-			font-family: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+			font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 		}
 
 		main {
-			width: min(920px, 100%);
+			width: min(1040px, 100%);
 			display: grid;
 			gap: 24px;
 			padding: 28px;
-			border-radius: 24px;
-			background: rgba(7, 10, 18, 0.72);
-			border: 1px solid rgba(255, 255, 255, 0.1);
-			box-shadow: 0 22px 80px rgba(0, 0, 0, 0.42);
-			backdrop-filter: blur(10px);
+			border-radius: 28px;
+			background:
+				linear-gradient(180deg, rgba(147, 117, 84, 0.22), rgba(26, 21, 16, 0.14)),
+				linear-gradient(135deg, rgba(53, 41, 32, 0.98), rgba(24, 19, 14, 0.98));
+			border: 1px solid var(--panel-border);
+			box-shadow: var(--panel-shadow);
+			position: relative;
+			overflow: hidden;
+		}
+
+		main::before {
+			content: '';
+			position: absolute;
+			inset: 14px;
+			border-radius: 20px;
+			border: 1px solid rgba(255, 242, 214, 0.08);
+			pointer-events: none;
 		}
 
 		header,
@@ -43,7 +65,9 @@ export class App extends LitElement {
 		.status-grid,
 		.mode-section {
 			display: grid;
-			gap: 12px;
+			gap: 14px;
+			position: relative;
+			z-index: 1;
 		}
 
 		h1,
@@ -52,63 +76,131 @@ export class App extends LitElement {
 			margin: 0;
 		}
 
-		.eyebrow {
+		header {
+			grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.9fr);
+			align-items: end;
+			gap: 18px 28px;
+			padding-bottom: 20px;
+			border-bottom: 1px solid rgba(255, 219, 160, 0.14);
+		}
+
+		.header-copy {
+			display: grid;
+			gap: 12px;
+		}
+
+		.brand-plate {
+			display: grid;
+			gap: 10px;
+			padding: 16px 18px;
+			border-radius: 16px;
+			background: linear-gradient(180deg, rgba(0, 0, 0, 0.28), rgba(255, 255, 255, 0.03));
+			border: 1px solid rgba(255, 226, 177, 0.18);
+			box-shadow: inset 0 1px 0 rgba(255, 245, 223, 0.08);
+		}
+
+		.eyebrow,
+		.guide-label,
+		.status-label,
+		.switch-label,
+		.plate-label {
 			text-transform: uppercase;
-			letter-spacing: 0.14em;
-			font-size: 0.78rem;
-			color: rgba(157, 214, 255, 0.9);
+			letter-spacing: 0.18em;
+			font-size: 0.72rem;
+			color: rgba(245, 223, 176, 0.7);
 		}
 
 		h1 {
-			font-size: clamp(2rem, 5vw, 3.4rem);
-			letter-spacing: -0.03em;
+			font-family: 'Orbitron', 'Inter', sans-serif;
+			font-size: clamp(2.4rem, 5vw, 4rem);
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: #f8e2b8;
+			text-shadow: 0 0 18px rgba(207, 111, 54, 0.16);
 		}
 
 		.lead,
 		.detail,
-		.switch-detail {
+		.switch-detail,
+		.plate-value {
 			line-height: 1.6;
-			color: rgba(232, 238, 247, 0.84);
+			color: rgba(244, 235, 212, 0.86);
+		}
+
+		.plate-value {
+			font-family: 'Orbitron', 'Inter', sans-serif;
+			font-size: 1.05rem;
+			letter-spacing: 0.08em;
+			color: var(--display-green);
 		}
 
 		.keyboard-guide,
 		.mode-section {
-			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+			grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 		}
 
 		.guide-card,
 		.status-card,
 		.switch-card {
 			display: grid;
-			gap: 8px;
-			padding: 16px;
-			border-radius: 16px;
-			background: rgba(255, 255, 255, 0.06);
-			border: 1px solid rgba(255, 255, 255, 0.08);
+			gap: 10px;
+			padding: 18px;
+			border-radius: 18px;
+			background:
+				linear-gradient(180deg, rgba(255, 247, 234, 0.04), rgba(0, 0, 0, 0.14)),
+				linear-gradient(135deg, rgba(80, 62, 49, 0.94), rgba(46, 35, 28, 0.96));
+			border: 1px solid rgba(255, 225, 173, 0.12);
+			box-shadow:
+				inset 0 1px 0 rgba(255, 248, 230, 0.06),
+				0 10px 18px rgba(0, 0, 0, 0.18);
 		}
 
-		.guide-label,
-		.status-label,
-		.switch-label {
-			font-size: 0.74rem;
-			text-transform: uppercase;
-			letter-spacing: 0.12em;
-			color: rgba(232, 238, 247, 0.62);
+		.guide-card {
+			position: relative;
+			overflow: hidden;
+		}
+
+		.guide-card::after {
+			content: '';
+			position: absolute;
+			left: 18px;
+			right: 18px;
+			bottom: 14px;
+			height: 4px;
+			border-radius: 999px;
+			background: linear-gradient(90deg, #d85e31, #e0b95f, #9bc67d);
+			opacity: 0.75;
 		}
 
 		.guide-value,
 		.status-value,
 		.switch-value {
-			font-size: 1.05rem;
+			font-family: 'Orbitron', 'Inter', sans-serif;
+			font-size: 1rem;
 			font-weight: 700;
+			letter-spacing: 0.06em;
+		}
+
+		.guide-value {
+			padding-bottom: 14px;
+			line-height: 1.7;
 		}
 
 		.status-grid {
-			grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		}
+
+		.status-card {
+			min-height: 104px;
+		}
+
+		.status-value {
+			color: var(--display-green);
+			text-shadow: 0 0 10px rgba(184, 246, 169, 0.12);
 		}
 
 		.switch-card {
-			gap: 12px;
+			gap: 14px;
 		}
 
 		.switch-row {
@@ -132,41 +224,59 @@ export class App extends LitElement {
 		}
 
 		.switch-track {
-			width: 58px;
-			height: 32px;
+			width: 70px;
+			height: 36px;
 			display: inline-flex;
 			align-items: center;
 			padding: 4px;
 			box-sizing: border-box;
 			border-radius: 999px;
-			background: rgba(255, 255, 255, 0.18);
+			border: 1px solid rgba(255, 230, 181, 0.14);
+			background: linear-gradient(180deg, var(--switch-off), #393028);
+			box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.32);
 			transition: background 0.18s ease;
 		}
 
 		.switch-thumb {
-			width: 24px;
-			height: 24px;
+			width: 26px;
+			height: 26px;
 			border-radius: 50%;
-			background: rgb(255, 255, 255);
-			box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+			background: linear-gradient(180deg, #f6e2bf, #caa36f);
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 			transform: translateX(0);
 			transition: transform 0.18s ease;
 		}
 
 		.switch-input:checked + .switch-track {
-			background: rgba(64, 180, 255, 0.9);
+			background: linear-gradient(180deg, var(--switch-on), #92441d);
 		}
 
 		.switch-input:checked + .switch-track .switch-thumb {
-			transform: translateX(26px);
+			transform: translateX(34px);
 		}
 
 		.detail {
-			padding: 16px;
-			border-radius: 16px;
-			background: rgba(64, 180, 255, 0.08);
-			border: 1px solid rgba(64, 180, 255, 0.18);
-			height: 3em;
+			position: relative;
+			z-index: 1;
+			padding: 18px 20px;
+			border-radius: 18px;
+			background: linear-gradient(180deg, rgba(207, 111, 54, 0.15), rgba(0, 0, 0, 0.16));
+			border: 1px solid rgba(221, 157, 90, 0.24);
+			min-height: 4.6em;
+		}
+
+		@media (max-width: 760px) {
+			header {
+				grid-template-columns: 1fr;
+			}
+
+			:host {
+				padding: 18px;
+			}
+
+			main {
+				padding: 20px;
+			}
 		}
 	`
 
@@ -368,12 +478,20 @@ export class App extends LitElement {
 		return html`
 			<main>
 				<header>
-					<p class="eyebrow">Phase 2 — Playable QWERTY Keyboard</p>
-					<h1>Scanline Synth</h1>
-					<p class="lead">
-						The synth now receives the full set of held QWERTY notes and decides whether to sound them
-						polyphonically or collapse them into one monophonic lead voice.
-					</p>
+					<div class="header-copy">
+						<p class="eyebrow">Phase 2 — Playable QWERTY Keyboard</p>
+						<h1>Scanline Synth</h1>
+						<p class="lead">
+							The synth now feels more like a warm vintage instrument panel, with mapped QWERTY notes,
+							retro status displays, and a mono-poly performance switch.
+						</p>
+					</div>
+					<div class="brand-plate" aria-label="Instrument panel badge">
+						<div class="plate-label">Program</div>
+						<div class="plate-value">ANALOG KEYS / PANEL A</div>
+						<div class="plate-label">Circuit status</div>
+						<div class="plate-value">OSC READY · FILTER WARM</div>
+					</div>
 				</header>
 
 				<section class="keyboard-guide" aria-label="QWERTY keyboard mapping">
