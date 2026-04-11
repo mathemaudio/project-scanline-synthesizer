@@ -14,7 +14,6 @@
     "types": ["vite/client"],
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
-    "baseUrl": ".",
     "paths": {
       "@shared/*": ["../shared/src/*"]
     }

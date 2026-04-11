@@ -1,7 +1,7 @@
 import { Spec } from '@shared/lll.lll'
 import { KeyboardPitch } from './KeyboardPitch.lll'
 
-@Spec('Maps QWERTY keys to chromatic pitches and tracks the currently held note for phase-two playability.')
+@Spec('Maps QWERTY keys to chromatic pitches, keeps held-key order, and exposes both active and polyphonic pitch state.')
 export class QwertyKeyboard {
 	private readonly baseOctave: number
 	private readonly pitchReferenceHz: number
@@ -63,63 +63,39 @@ export class QwertyKeyboard {
 		}
 	}
 
-	@Spec('Marks a mapped key as held and returns the active pitch state that the synth should follow.')
-	pressKey(key: string): { consumed: boolean, didChange: boolean, activePitch: KeyboardPitch | null } {
+	@Spec('Marks a mapped key as held and returns the current active and held pitch state that the synth can interpret.')
+	pressKey(key: string): { consumed: boolean, didChange: boolean, activePitch: KeyboardPitch | null, heldPitches: KeyboardPitch[] } {
 		const pitch = this.getPitchForKey(key)
 		if (pitch === null) {
-			return {
-				consumed: false,
-				didChange: false,
-				activePitch: this.getActivePitch()
-			}
+			return this.createPlayState(false, false)
 		}
 
 		const normalizedKey = this.normalizeKey(key)
 		if (this.heldKeys.includes(normalizedKey)) {
-			return {
-				consumed: true,
-				didChange: false,
-				activePitch: this.getActivePitch()
-			}
+			return this.createPlayState(true, false)
 		}
 
 		this.heldKeys.push(normalizedKey)
-		return {
-			consumed: true,
-			didChange: true,
-			activePitch: this.getActivePitch()
-		}
+		return this.createPlayState(true, true)
 	}
 
-	@Spec('Releases a mapped key and returns the next active pitch so note-off and fallback can be handled cleanly.')
-	releaseKey(key: string): { consumed: boolean, didChange: boolean, activePitch: KeyboardPitch | null } {
+	@Spec('Releases a mapped key and returns the next active and held pitch state so the synth can react cleanly.')
+	releaseKey(key: string): { consumed: boolean, didChange: boolean, activePitch: KeyboardPitch | null, heldPitches: KeyboardPitch[] } {
 		const pitch = this.getPitchForKey(key)
 		if (pitch === null) {
-			return {
-				consumed: false,
-				didChange: false,
-				activePitch: this.getActivePitch()
-			}
+			return this.createPlayState(false, false)
 		}
 
 		const normalizedKey = this.normalizeKey(key)
 		const activeKeyBeforeRelease = this.heldKeys[this.heldKeys.length - 1] ?? null
 		const keyIndex = this.heldKeys.lastIndexOf(normalizedKey)
 		if (keyIndex === -1) {
-			return {
-				consumed: true,
-				didChange: false,
-				activePitch: this.getActivePitch()
-			}
+			return this.createPlayState(true, false)
 		}
 
 		this.heldKeys.splice(keyIndex, 1)
 		const activeKeyAfterRelease = this.heldKeys[this.heldKeys.length - 1] ?? null
-		return {
-			consumed: true,
-			didChange: activeKeyBeforeRelease !== activeKeyAfterRelease,
-			activePitch: this.getActivePitch()
-		}
+		return this.createPlayState(true, activeKeyBeforeRelease !== activeKeyAfterRelease)
 	}
 
 	@Spec('Returns the currently active pitch based on the most recently held mapped key.')
@@ -131,8 +107,28 @@ export class QwertyKeyboard {
 		return this.getPitchForKey(activeKey)
 	}
 
+	@Spec('Returns all currently held mapped pitches in held order so the synth can choose mono or poly behavior.')
+	getHeldPitches(): KeyboardPitch[] {
+		return this.heldKeys
+			.map((heldKey) => this.getPitchForKey(heldKey))
+			.filter((pitch): pitch is KeyboardPitch => pitch !== null)
+	}
+
 	@Spec('Normalizes browser key text so shifted letter presses still map to the intended synth note.')
 	private normalizeKey(key: string): string {
 		return key.trim().toLowerCase()
+	}
+
+	@Spec('Builds one play-state snapshot that includes both the active note and the full held-note list.')
+	private createPlayState(
+		consumed: boolean,
+		didChange: boolean
+	): { consumed: boolean, didChange: boolean, activePitch: KeyboardPitch | null, heldPitches: KeyboardPitch[] } {
+		return {
+			consumed,
+			didChange,
+			activePitch: this.getActivePitch(),
+			heldPitches: this.getHeldPitches()
+		}
 	}
 }

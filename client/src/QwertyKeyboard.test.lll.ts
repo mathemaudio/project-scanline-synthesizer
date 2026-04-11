@@ -2,7 +2,7 @@ import './QwertyKeyboard.lll'
 import { AssertFn, Scenario, Spec, WaitForFn } from '@shared/lll.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
 
-@Spec('Covers the phase-two QWERTY keyboard mapping and held-key note selection rules with unit scenarios.')
+@Spec('Covers the phase-two QWERTY keyboard mapping, held-key ordering, and polyphonic held-pitch snapshots with unit scenarios.')
 export class QwertyKeyboardTest {
 	testType = "unit"
 
@@ -73,5 +73,27 @@ export class QwertyKeyboardTest {
 			activeAfterFallback,
 			activeAfterFinalRelease
 		}
+	}
+
+	@Scenario('held pitch snapshots preserve all unique held notes for a synth that wants polyphonic input')
+	static async exposesHeldPitchesForPolyphonicSynthDecision(
+		input = {},
+		assert: AssertFn,
+		waitFor: WaitForFn
+	): Promise<{ heldNotesBeforeRelease: string[], heldNotesAfterRelease: string[] }> {
+		const keyboard = new QwertyKeyboard({ baseOctave: 4, pitchReferenceHz: 440 })
+		keyboard.pressKey('q')
+		keyboard.pressKey('w')
+		keyboard.pressKey('q')
+		const heldNotesBeforeRelease = keyboard.getHeldPitches().map((pitch) => pitch.noteLabel)
+		keyboard.releaseKey('q')
+		const heldNotesAfterRelease = keyboard.getHeldPitches().map((pitch) => pitch.noteLabel)
+		await waitFor(() => heldNotesBeforeRelease.length === 2, 'Expected two unique held notes after pressing Q and W')
+		assert(heldNotesBeforeRelease.length === 2, 'Expected held pitch snapshots to include both unique mapped keys')
+		assert(heldNotesBeforeRelease[0] === 'C4', 'Expected held pitch snapshots to preserve Q as the first held note')
+		assert(heldNotesBeforeRelease[1] === 'D4', 'Expected held pitch snapshots to preserve W as the second held note')
+		assert(heldNotesAfterRelease.length === 1, 'Expected releasing Q to leave only one held pitch')
+		assert(heldNotesAfterRelease[0] === 'D4', 'Expected remaining held pitch after releasing Q to be D4')
+		return { heldNotesBeforeRelease, heldNotesAfterRelease }
 	}
 }

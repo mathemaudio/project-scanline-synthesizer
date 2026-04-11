@@ -2,7 +2,7 @@ import './PrimitiveSynth.lll'
 import { AssertFn, Scenario, Spec, WaitForFn } from '@shared/lll.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
 
-@Spec('Covers the primitive sine-wave synth engine with deterministic unit scenarios.')
+@Spec('Covers the primitive sine-wave synth engine with deterministic unit scenarios for mono and poly voice behavior.')
 export class PrimitiveSynthTest {
 	testType = "unit"
 
@@ -36,6 +36,38 @@ export class PrimitiveSynthTest {
 			oscillatorType: harness.oscillatorStates[0].type,
 			frequencyHz: harness.oscillatorStates[0].frequencyHz
 		}
+	}
+
+	@Scenario('polyphonic sync starts one voice per unique held note and monophonic mode collapses to the latest note')
+	static async syncsPolyphonicAndMonophonicVoices(
+		input = {},
+		assert: AssertFn,
+		waitFor: WaitForFn
+	): Promise<{ polyphonicVoiceCount: number, monophonicVoiceCount: number, survivingFrequencyHz: number }> {
+		const harness = this.createAudioHarness()
+		const synth = new PrimitiveSynth({
+			createAudioContext: () => harness.audioContext,
+			scheduleTimeout: harness.scheduleTimeout,
+			cancelTimeout: harness.cancelTimeout
+		})
+
+		await synth.syncNotes([261.6255653005986, 293.6647679174076])
+		await waitFor(() => synth.getActiveVoiceCount() === 2, 'Expected polyphonic sync to start two voices')
+		const polyphonicVoiceCount = synth.getActiveVoiceCount()
+		assert(polyphonicVoiceCount === 2, 'Expected synth to sound two simultaneous voices in polyphonic mode')
+		assert(harness.oscillatorStates.length === 2, 'Expected polyphonic sync to create two oscillators')
+		assert(harness.oscillatorStates[0].frequencyHz === 261.6255653005986, 'Expected first polyphonic voice to use the first requested pitch')
+		assert(harness.oscillatorStates[1].frequencyHz === 293.6647679174076, 'Expected second polyphonic voice to use the second requested pitch')
+
+		synth.setMonophonic(true)
+		await synth.syncNotes([261.6255653005986, 293.6647679174076])
+		await waitFor(() => synth.getActiveVoiceCount() === 1, 'Expected monophonic sync to collapse to one voice')
+		const monophonicVoiceCount = synth.getActiveVoiceCount()
+		assert(monophonicVoiceCount === 1, 'Expected monophonic mode to keep only one sounding voice')
+		assert(harness.oscillatorStates[0].stopTimes.length >= 1, 'Expected the earlier polyphonic voice to be retired when switching to monophonic mode')
+		const survivingFrequencyHz = harness.findActiveFrequencies()[0] ?? 0
+		assert(survivingFrequencyHz === 293.6647679174076, 'Expected monophonic mode to keep only the latest held pitch sounding')
+		return { polyphonicVoiceCount, monophonicVoiceCount, survivingFrequencyHz }
 	}
 
 	@Scenario('release and retrigger stop cleanly without losing the ability to play again')
@@ -77,15 +109,16 @@ export class PrimitiveSynthTest {
 	private static createAudioHarness(): {
 		audioContext: AudioContext
 		resumeCalls: number
-		oscillatorStates: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[] }[]
+		oscillatorStates: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[], disconnected: boolean }[]
 		gainEvents: { method: string, value: number, time: number }[]
 		scheduleTimeout: (callback: () => void, delayMs: number) => number
 		cancelTimeout: (timeoutId: number) => void
 		runScheduledTimeouts: () => void
+		findActiveFrequencies: () => number[]
 	} {
 		let resumeCalls = 0
 		let nextTimeoutId = 1
-		const oscillatorStates: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[] }[] = []
+		const oscillatorStates: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[], disconnected: boolean }[] = []
 		const gainEvents: { method: string, value: number, time: number }[] = []
 		const scheduledTimeouts: { id: number, callback: () => void, canceled: boolean }[] = []
 		let contextState: 'running' | 'suspended' | 'closed' = 'suspended'
@@ -126,11 +159,12 @@ export class PrimitiveSynthTest {
 				}
 			},
 			createOscillator: () => {
-				const oscillatorState: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[] } = {
+				const oscillatorState: { type: OscillatorType, frequencyHz: number, startTimes: number[], stopTimes: number[], disconnected: boolean } = {
 					type: 'sine',
 					frequencyHz: 440,
 					startTimes: [] as number[],
-					stopTimes: [] as number[]
+					stopTimes: [] as number[],
+					disconnected: false
 				}
 				oscillatorStates.push(oscillatorState)
 				const oscillator = {
@@ -150,7 +184,9 @@ export class PrimitiveSynthTest {
 					},
 					onended: null as ((event: Event) => void) | null,
 					connect: (_destinationNode: unknown) => undefined,
-					disconnect: () => undefined,
+					disconnect: () => {
+						oscillatorState.disconnected = true
+					},
 					start: (time?: number) => {
 						oscillatorState.startTimes.push(time ?? 0)
 					},
@@ -189,7 +225,8 @@ export class PrimitiveSynthTest {
 						timeout.canceled = true
 					}
 				}
-			}
+			},
+			findActiveFrequencies: () => oscillatorStates.filter((state) => state.disconnected === false).map((state) => state.frequencyHz)
 		}
 	}
 }

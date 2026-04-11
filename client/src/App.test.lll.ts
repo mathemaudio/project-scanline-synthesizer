@@ -4,7 +4,7 @@ import { customElement } from 'lit/decorators.js'
 import { AssertFn, Scenario, Spec, WaitForFn } from '@shared/lll.lll'
 import { App } from './App.lll'
 
-@Spec('Exercises the phase-two Scanline Synth UI through visible QWERTY keyboard interactions only.')
+@Spec('Exercises the Scanline Synth UI through visible QWERTY keyboard interactions and the mono-poly switch only.')
 @customElement('app-test-panel')
 export class AppTest extends LitElement {
 	testType = "behavioral"
@@ -56,6 +56,7 @@ export class AppTest extends LitElement {
 		assert(noteState === 'Playing', 'Expected note state to be Playing after pressing Q')
 		assert(pitchText.includes('C4'), 'Expected pitch card to include the C4 note label')
 		assert(this.readTextById(app, 'trigger-count-value') === '1', 'Expected first mapped key press to increase trigger count to 1')
+		assert(this.readTextById(app, 'voice-mode-value') === 'Polyphonic', 'Expected synth to default to polyphonic mode')
 		return { activeKey, activeNote, noteState }
 	}
 
@@ -77,6 +78,7 @@ export class AppTest extends LitElement {
 		assert(noteStateAfterRelease === 'Ready to play', 'Expected note state to return to Ready to play after release')
 		assert(activeNoteAfterRelease === '—', 'Expected active note card to clear after releasing the final held key')
 		assert(this.readTextById(app, 'pitch-value') === 'No active note', 'Expected pitch card to clear after note-off')
+		assert(this.readTextById(app, 'sounding-voices-value') === '0', 'Expected sounding voice count to return to zero after release')
 		return { noteStateAfterRelease, activeNoteAfterRelease }
 	}
 
@@ -131,6 +133,35 @@ export class AppTest extends LitElement {
 		assert(continuedTopRowNote === 'C5', 'Expected I to produce visible note C5')
 		assert(duplicatedLowerRowNote === 'C5', 'Expected Z to produce the duplicated visible note C5')
 		return { topGuide, continuedTopRowNote, duplicatedLowerRowNote }
+	}
+
+	@Scenario('polyphonic mode keeps multiple held keys visibly sounding and the switch can collapse them to monophonic')
+	static async togglesBetweenPolyphonicAndMonophonicPlayback(
+		input = {},
+		assert: AssertFn,
+		waitFor: WaitForFn
+	): Promise<{ soundingVoicesBeforeToggle: string, soundingVoicesAfterToggle: string, voiceModeAfterToggle: string }> {
+		this.installAudioContextStub()
+		const app = await this.getRenderedApp(waitFor)
+		this.dispatchKeyboardEvent('keydown', 'q')
+		await waitFor(() => this.readTextById(app, 'note-state-value') === 'Playing', 'Expected the first key to place the synth in Playing state before counting voices')
+		await waitFor(() => this.readTextById(app, 'sounding-voices-value') === '1', 'Expected the first key to start one sounding voice')
+		this.dispatchKeyboardEvent('keydown', 'w')
+		await waitFor(() => this.readTextById(app, 'active-note-value') === 'D4', 'Expected the second held key to become the newest visible active note before counting voices')
+		await waitFor(() => this.readTextById(app, 'sounding-voices-value') === '2', 'Expected polyphonic mode to keep two sounding voices visible')
+		const soundingVoicesBeforeToggle = this.readTextById(app, 'sounding-voices-value')
+		assert(this.readTextById(app, 'voice-mode-value') === 'Polyphonic', 'Expected default voice mode card to show Polyphonic')
+		assert(this.readTextById(app, 'active-note-value') === 'D4', 'Expected the newest held key W to remain the visible active note')
+		this.toggleMonophonicSwitch(app, true)
+		await waitFor(() => this.readTextById(app, 'voice-mode-value') === 'Monophonic', 'Expected voice mode card to update after enabling monophonic mode')
+		await waitFor(() => this.readTextById(app, 'sounding-voices-value') === '1', 'Expected enabling monophonic mode to collapse sounding voices to one')
+		const soundingVoicesAfterToggle = this.readTextById(app, 'sounding-voices-value')
+		const voiceModeAfterToggle = this.readTextById(app, 'voice-mode-value')
+		assert(this.readTextById(app, 'monophonic-toggle-value') === 'On', 'Expected visible switch label to show On after enabling monophonic mode')
+		assert(soundingVoicesBeforeToggle === '2', 'Expected two sounding voices before the mono toggle')
+		assert(soundingVoicesAfterToggle === '1', 'Expected one sounding voice after the mono toggle')
+		assert(voiceModeAfterToggle === 'Monophonic', 'Expected visible voice mode card to show Monophonic after the toggle')
+		return { soundingVoicesBeforeToggle, soundingVoicesAfterToggle, voiceModeAfterToggle }
 	}
 
 	@Spec('Finds the on-screen App instance and remounts it in place for each behavioral scenario.')
@@ -228,6 +259,16 @@ export class AppTest extends LitElement {
 	@Spec('Dispatches a browser keyboard event so the mounted app receives a visible keyboard interaction.')
 	private static dispatchKeyboardEvent(type: 'keydown' | 'keyup', key: string) {
 		window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true }))
+	}
+
+	@Spec('Toggles the visible monophonic switch using only the rendered UI control.')
+	private static toggleMonophonicSwitch(app: App, checked: boolean) {
+		const input = app.shadowRoot?.querySelector<HTMLInputElement>('#monophonic-toggle')
+		if (!input) {
+			throw new Error('Monophonic toggle not found')
+		}
+		input.checked = checked
+		input.dispatchEvent(new Event('change', { bubbles: true }))
 	}
 
 	@Spec('Reads visible text content from a stable element id inside app-root.')
