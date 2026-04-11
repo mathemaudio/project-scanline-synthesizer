@@ -1,45 +1,17 @@
 import './Calculator.lll'
-import { LitElement, css, html, render, type TemplateResult } from 'lit'
-import { customElement } from 'lit/decorators.js'
-import { AssertFn, Scenario, Spec, WaitForFn } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from '@shared/lll.lll'
 import { Calculator } from './Calculator.lll'
 
 @Spec('Exercises calculator behavior through visible UI interactions only.')
-@customElement('calculator-test-panel')
-export class CalculatorTest extends LitElement {
-	testType = "behavioral"
-	private static activeInstance: CalculatorTest | null = null
-
-	@Spec('Tracks the currently connected calculator test panel for scenario reuse.')
-	connectedCallback() {
-		super.connectedCallback()
-		CalculatorTest.activeInstance = this
-	}
-
-	@Spec('Clears tracked calculator test panel when it disconnects.')
-	disconnectedCallback() {
-		if (CalculatorTest.activeInstance === this) {
-			CalculatorTest.activeInstance = null
-		}
-		super.disconnectedCallback()
-	}
-
-	static styles = css`
-		:host {
-			display: block;
-			padding: 8px;
-		}
-	`
-
-	@Spec('Renders the calculator panel used by behavioral scenarios.')
-	render(): TemplateResult {
-		return html`<div id="calculator-host"><calculator-panel></calculator-panel></div>`
-	}
+export class CalculatorTest {
+	testType = 'behavioral'
 
 	@Scenario('12 + 34 = 46')
-	static async addsNumbersThroughButtons(input = {}, assert: AssertFn, waitFor: WaitForFn): Promise<{ display: string }> {
-		const calculator = await this.getRenderedCalculator(waitFor)
-		await this.resetCalculatorState(calculator, waitFor)
+	static async addsNumbersThroughButtons(subjectFactory: SubjectFactory<Calculator>, scenario: ScenarioParameter): Promise<{ display: string }> {
+		const assert: AssertFn = scenario.assert
+		const waitFor: WaitForFn = scenario.waitFor
+		const calculator = await subjectFactory()
+		await this.prepareCalculator(calculator, waitFor)
 		await this.clickButtonByLabel(calculator, '1')
 		await this.clickButtonByLabel(calculator, '2')
 		await this.clickButtonByLabel(calculator, '+')
@@ -54,13 +26,14 @@ export class CalculatorTest extends LitElement {
 	}
 
 	@Scenario('98765 * 43210 = 4267635650')
-	static async multipliesLargeNumbersThroughButtons(input = {}, assert: AssertFn, waitFor: WaitForFn): Promise<{ display: string }> {
-		const calculator = await this.getRenderedCalculator(waitFor)
-		await this.resetCalculatorState(calculator, waitFor)
+	static async multipliesLargeNumbersThroughButtons(subjectFactory: SubjectFactory<Calculator>, scenario: ScenarioParameter): Promise<{ display: string }> {
+		const assert: AssertFn = scenario.assert
+		const waitFor: WaitForFn = scenario.waitFor
+		const calculator = await subjectFactory()
+		await this.prepareCalculator(calculator, waitFor)
 		for (const digit of ['9', '8', '7', '6', '5']) {
 			await this.clickButtonByLabel(calculator, digit)
 		}
-		// assert(22 == 11_1 * 2, 'I am only a test, never mind me')
 		await this.clickButtonByLabel(calculator, '*')
 		for (const digit of ['4', '3', '2', '1', '0']) {
 			await this.clickButtonByLabel(calculator, digit)
@@ -74,9 +47,11 @@ export class CalculatorTest extends LitElement {
 	}
 
 	@Scenario('12345 / 0 = Error')
-	static async divideByZeroShowsError(input = {}, assert: AssertFn, waitFor: WaitForFn): Promise<{ display: string }> {
-		const calculator = await this.getRenderedCalculator(waitFor)
-		await this.resetCalculatorState(calculator, waitFor)
+	static async divideByZeroShowsError(subjectFactory: SubjectFactory<Calculator>, scenario: ScenarioParameter): Promise<{ display: string }> {
+		const assert: AssertFn = scenario.assert
+		const waitFor: WaitForFn = scenario.waitFor
+		const calculator = await subjectFactory()
+		await this.prepareCalculator(calculator, waitFor)
 		for (const digit of ['1', '2', '3', '4', '5']) {
 			await this.clickButtonByLabel(calculator, digit)
 		}
@@ -91,13 +66,11 @@ export class CalculatorTest extends LitElement {
 	}
 
 	@Scenario('keyboard typing attempt does not change display')
-	static async ignoresKeyboardTypingInDisplay(
-		input = {},
-		assert: AssertFn,
-		waitFor: WaitForFn
-	): Promise<{ beforeTyping: string, afterTyping: string }> {
-		const calculator = await this.getRenderedCalculator(waitFor)
-		await this.resetCalculatorState(calculator, waitFor)
+	static async ignoresKeyboardTypingInDisplay(subjectFactory: SubjectFactory<Calculator>, scenario: ScenarioParameter): Promise<{ beforeTyping: string, afterTyping: string }> {
+		const assert: AssertFn = scenario.assert
+		const waitFor: WaitForFn = scenario.waitFor
+		const calculator = await subjectFactory()
+		await this.prepareCalculator(calculator, waitFor)
 		await this.clickButtonByLabel(calculator, '7')
 		const displayInput = calculator.shadowRoot?.querySelector<HTMLInputElement>('input.display')
 		assert(displayInput !== null && displayInput !== undefined, 'Expected calculator display input to exist')
@@ -116,13 +89,11 @@ export class CalculatorTest extends LitElement {
 	}
 
 	@Scenario('memory workflow')
-	static async handlesMemoryWorkflow(
-		input = {},
-		assert: AssertFn,
-		waitFor: WaitForFn
-	): Promise<{ recalledBeforeClear: string, recalledAfterClear: string }> {
-		const calculator = await this.getRenderedCalculator(waitFor)
-		await this.resetCalculatorState(calculator, waitFor)
+	static async handlesMemoryWorkflow(subjectFactory: SubjectFactory<Calculator>, scenario: ScenarioParameter): Promise<{ recalledBeforeClear: string, recalledAfterClear: string }> {
+		const assert: AssertFn = scenario.assert
+		const waitFor: WaitForFn = scenario.waitFor
+		const calculator = await subjectFactory()
+		await this.prepareCalculator(calculator, waitFor)
 		await this.clickButtonByLabel(calculator, '5')
 		await this.clickButtonByLabel(calculator, '0')
 		await this.clickButtonByLabel(calculator, 'M+')
@@ -144,88 +115,19 @@ export class CalculatorTest extends LitElement {
 		return { recalledBeforeClear, recalledAfterClear }
 	}
 
-	@Spec('Finds the on-screen calculator and resets it in place before each scenario.')
-	private static async getRenderedCalculator(waitFor: WaitForFn): Promise<Calculator> {
-		await waitFor(() => this.findBestRenderedTestPanel() !== null, 'Expected calculator test panel to be rendered before scenario actions')
-		const panel = this.findBestRenderedTestPanel()
-		if (!panel) {
-			throw new Error('Expected an already-rendered calculator-test-panel element')
-		}
-		this.removeOtherTestPanels(panel)
-		await panel.updateComplete
-		const host = panel.shadowRoot?.querySelector<HTMLElement>('#calculator-host')
-		if (!host) {
-			throw new Error('Calculator host not found in rendered calculator-test-panel')
-		}
-		render(html``, host)
-		render(html`<calculator-panel></calculator-panel>`, host)
-		const calculator = host.querySelector<Calculator>('calculator-panel')
-		if (!calculator) {
-			throw new Error('Failed to render calculator-panel in calculator host')
-		}
+	@Spec('Waits for the paired calculator host to render and resets it through visible controls.')
+	private static async prepareCalculator(calculator: Calculator, waitFor: WaitForFn): Promise<void> {
+		await waitFor(() => calculator.shadowRoot !== null, 'Expected calculator-panel shadow DOM to render')
 		await calculator.updateComplete
-		this.removeOtherCalculators(calculator)
-		return calculator
-	}
-
-	@Spec('Resets calculator through visible controls so scenarios do not rely on prior state.')
-	private static async resetCalculatorState(calculator: Calculator, waitFor: WaitForFn) {
 		await this.clickButtonByLabel(calculator, 'C')
 		await waitFor(() => this.readDisplayValue(calculator) === '0', 'Expected calculator reset to restore display to 0')
 	}
 
-	@Spec('Selects the best currently rendered calculator test panel, preferring visible active instance.')
-	private static findBestRenderedTestPanel(): CalculatorTest | null {
-		if (this.activeInstance !== null && this.activeInstance.isConnected) {
-			return this.activeInstance
-		}
-
-		const allPanels = Array.from(document.querySelectorAll<CalculatorTest>('calculator-test-panel'))
-		const visiblePanel = allPanels.find((element) => element.isConnected && element.getClientRects().length > 0)
-		if (visiblePanel !== undefined) {
-			return visiblePanel
-		}
-		return allPanels.find((element) => element.isConnected) ?? null
-	}
-
-	@Spec('Removes duplicate calculator test panels so only the active panel remains.')
-	private static removeOtherTestPanels(activePanel: CalculatorTest) {
-		const allPanels = Array.from(document.querySelectorAll<CalculatorTest>('calculator-test-panel'))
-		for (const panel of allPanels) {
-			if (panel !== activePanel) {
-				panel.remove()
-			}
-		}
-	}
-
-	@Spec('Removes duplicate calculator elements and keeps the active scenario calculator only.')
-	private static removeOtherCalculators(activeCalculator: Calculator) {
-		const allCalculators = this.findAllCalculators(document)
-		for (const calculator of allCalculators) {
-			if (calculator !== activeCalculator) {
-				calculator.remove()
-			}
-		}
-	}
-
-	@Spec('Collects all calculator-panel elements from document and open shadow roots.')
-	private static findAllCalculators(root: Document | ShadowRoot): Calculator[] {
-		const calculators = Array.from(root.querySelectorAll<Calculator>('calculator-panel'))
-		const elements = Array.from(root.querySelectorAll<HTMLElement>('*'))
-		for (const element of elements) {
-			const shadowRoot = element.shadowRoot
-			if (shadowRoot !== null) {
-				calculators.push(...this.findAllCalculators(shadowRoot))
-			}
-		}
-		return calculators
-	}
-
 	@Spec('Clicks a calculator button by its exact visible label.')
-	private static async clickButtonByLabel(calculator: Calculator, label: string) {
+	private static async clickButtonByLabel(calculator: Calculator, label: string): Promise<void> {
 		const buttons = Array.from(calculator.shadowRoot?.querySelectorAll<HTMLButtonElement>('button') ?? [])
-		const button = buttons.find((candidate) => candidate.textContent?.trim() === label)
-		if (!button) {
+		const button = buttons.find(candidate => candidate.textContent?.trim() === label)
+		if (button === undefined) {
 			throw new Error(`Button not found: ${label}`)
 		}
 		button.click()
@@ -235,10 +137,9 @@ export class CalculatorTest extends LitElement {
 	@Spec('Reads the current value shown in the calculator display.')
 	private static readDisplayValue(calculator: Calculator): string {
 		const display = calculator.shadowRoot?.querySelector<HTMLInputElement>('input.display')
-		if (!display) {
+		if (display === null || display === undefined) {
 			throw new Error('Calculator display not found')
 		}
 		return display.value
 	}
-
 }
