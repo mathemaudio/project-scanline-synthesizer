@@ -78,6 +78,46 @@ export class AppTest {
 		}
 	}
 
+	@Scenario('uploading an image shows the preview on the right panel while status cards stay visible on the left')
+	static async showsUploadedImagePreviewBesideStatusCards(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ uploadedImageName: string, uploadedImageSource: string, waveform: string, triggerCount: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalCreateObjectUrl = URL.createObjectURL
+		const originalRevokeObjectUrl = URL.revokeObjectURL
+		URL.createObjectURL = ((file: Blob | MediaSource) => `blob:behavioral-${'name' in file ? String(file.name) : 'image'}`) as typeof URL.createObjectURL
+		URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const uploadInput = app.shadowRoot?.querySelector<HTMLInputElement>('#image-upload-input')
+			assert(uploadInput !== null && uploadInput !== undefined, 'Expected image upload input to exist')
+			const uploadedFile = new File(['preview'], 'panel-reference.png', { type: 'image/png' })
+			Object.defineProperty(uploadInput, 'files', {
+				configurable: true,
+				value: [uploadedFile]
+			})
+			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+
+			await waitFor(() => this.readText(app, '#uploaded-image-name') === 'panel-reference.png', 'Expected uploaded image name to appear in the right panel')
+			const previewImage = app.shadowRoot?.querySelector<HTMLImageElement>('#uploaded-image-element')
+			const uploadedImageName = this.readText(app, '#uploaded-image-name')
+			const uploadedImageSource = previewImage?.getAttribute('src') ?? ''
+			const waveform = this.readText(app, '#waveform-value')
+			const triggerCount = this.readText(app, '#trigger-count-value')
+
+			assert(previewImage !== null && previewImage !== undefined, 'Expected uploaded image preview element to render')
+			assert(uploadedImageName === 'panel-reference.png', 'Expected uploaded image file name to be shown')
+			assert(uploadedImageSource.includes('panel-reference.png'), 'Expected uploaded image preview to use the selected file object URL')
+			assert(waveform === 'Sine', 'Expected the status cards to remain visible in the left column')
+			assert(triggerCount === '0', 'Expected status values to stay rendered after an image upload')
+			return { uploadedImageName, uploadedImageSource, waveform, triggerCount }
+		} finally {
+			URL.createObjectURL = originalCreateObjectUrl
+			URL.revokeObjectURL = originalRevokeObjectUrl
+		}
+	}
+
 	@Spec('Provides a local assertion fallback when the scenario runner omits helper functions.')
 	private static failFastAssert(condition: boolean, message?: string): asserts condition {
 		if (condition === false) {
