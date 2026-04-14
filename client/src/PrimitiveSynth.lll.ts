@@ -1,6 +1,6 @@
 import { Spec } from '@shared/lll.lll'
 
-@Spec('Provides a minimal browser sine-wave synth voice engine that can choose monophonic or polyphonic playback.')
+@Spec('Provides a minimal browser synth voice engine that can switch between sine playback and uploaded image-derived waveforms.')
 export class PrimitiveSynth {
 	private readonly attackDurationSeconds: number
 	private readonly releaseDurationSeconds: number
@@ -14,6 +14,7 @@ export class PrimitiveSynth {
 	private pendingReadyTimeoutId: number | null = null
 	private requestVersion: number = 0
 	private isMonophonic: boolean
+	private waveformSamples: number[] | null = null
 
 	constructor(
 		options: {
@@ -41,6 +42,11 @@ export class PrimitiveSynth {
 	@Spec('Switches the synth between monophonic note selection and polyphonic chord playback.')
 	setMonophonic(isMonophonic: boolean) {
 		this.isMonophonic = isMonophonic
+	}
+
+	@Spec('Replaces the default sine oscillator shape with one uploaded image row waveform or clears back to sine when null is provided.')
+	setWaveformSamples(waveformSamples: number[] | null) {
+		this.waveformSamples = waveformSamples === null ? null : [...waveformSamples]
 	}
 
 	@Spec('Reports how many voices are currently sounding so the UI can reflect the synth engine output.')
@@ -125,7 +131,7 @@ export class PrimitiveSynth {
 
 			const oscillator = audioContext.createOscillator()
 			const gainNode = audioContext.createGain()
-			oscillator.type = 'sine'
+			this.configureOscillatorWaveform(oscillator, audioContext)
 			oscillator.frequency.value = frequencyHz
 			gainNode.gain.cancelScheduledValues(audioContext.currentTime)
 			gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime)
@@ -209,6 +215,36 @@ export class PrimitiveSynth {
 		voice.gainNode.gain.setValueAtTime(safeStartGain, currentTime)
 		voice.gainNode.gain.exponentialRampToValueAtTime(0.0001, currentTime + fadeDurationSeconds)
 		voice.oscillator.stop(currentTime + fadeDurationSeconds + 0.01)
+	}
+
+	@Spec('Configures one oscillator to use either the default sine tone or the currently selected image-derived waveform samples.')
+	private configureOscillatorWaveform(oscillator: OscillatorNode, audioContext: AudioContext) {
+		if (this.waveformSamples === null || this.waveformSamples.length === 0) {
+			oscillator.type = 'sine'
+			return
+		}
+		const periodicWave = this.createPeriodicWaveFromSamples(audioContext, this.waveformSamples)
+		oscillator.setPeriodicWave(periodicWave)
+	}
+
+	@Spec('Builds a periodic wave from time-domain samples by converting them into Fourier coefficients for Web Audio playback.')
+	private createPeriodicWaveFromSamples(audioContext: AudioContext, samples: number[]): PeriodicWave {
+		const harmonicCount = Math.max(2, Math.min(samples.length, 64))
+		const real = new Float32Array(harmonicCount)
+		const imaginary = new Float32Array(harmonicCount)
+		for (let harmonicIndex = 1; harmonicIndex < harmonicCount; harmonicIndex += 1) {
+			let realSum = 0
+			let imaginarySum = 0
+			for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+				const phase = (2 * Math.PI * harmonicIndex * sampleIndex) / samples.length
+				const sample = samples[sampleIndex] ?? 0
+				realSum += sample * Math.cos(phase)
+				imaginarySum += sample * Math.sin(phase)
+			}
+			real[harmonicIndex] = realSum / samples.length
+			imaginary[harmonicIndex] = -imaginarySum / samples.length
+		}
+		return audioContext.createPeriodicWave(real, imaginary, { disableNormalization: false })
 	}
 
 	@Spec('Disconnects finished nodes and prevents stale voice endings from overriding newer active note state.')

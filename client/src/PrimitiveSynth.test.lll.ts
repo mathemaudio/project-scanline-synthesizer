@@ -2,7 +2,7 @@ import './PrimitiveSynth.lll'
 import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from '@shared/lll.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
 
-@Spec('Verifies primitive synth voice selection, release transitions, and unsupported-audio handling.')
+@Spec('Verifies primitive synth voice selection, waveform switching, release transitions, and unsupported-audio handling.')
 export class PrimitiveSynthTest {
 	testType = 'unit'
 
@@ -61,6 +61,28 @@ export class PrimitiveSynthTest {
 		return { activeVoiceCountBeforeRelease, released, finalState }
 	}
 
+	@Scenario('uploaded waveform samples switch oscillators away from the default sine type')
+	static async usesPeriodicWaveWhenImageSamplesAreProvided(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, oscillatorType: string, periodicWaveCallCount: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			createAudioContext: () => fakeAudioContext
+		})
+		synth.setWaveformSamples([-1, -0.5, 0.5, 1])
+
+		const didStart = await synth.startNote(261.625565)
+		const activeVoiceCount = synth.getActiveVoiceCount()
+		const oscillatorType = (fakeAudioContext as unknown as { lastOscillatorType: string }).lastOscillatorType
+		const periodicWaveCallCount = (fakeAudioContext as unknown as { periodicWaveCallCount: number }).periodicWaveCallCount
+
+		assert(didStart === true, 'Expected image-derived waveform playback to start with a fake audio context')
+		assert(activeVoiceCount === 1, 'Expected one active voice after starting one image-derived note')
+		assert(oscillatorType === 'custom', 'Expected oscillator playback to switch away from the default sine type')
+		assert(periodicWaveCallCount === 1, 'Expected the synth to build one periodic wave for the uploaded waveform samples')
+		return { didStart, activeVoiceCount, oscillatorType, periodicWaveCallCount }
+	}
+
 	@Scenario('missing audio context reports unsupported without starting voices')
 	static async reportsUnsupportedWhenAudioContextIsMissing(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, states: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -111,12 +133,18 @@ export class PrimitiveSynthTest {
 				this.value = value
 			}
 		})
-		return {
+		const fakeAudioContext = {
+			lastOscillatorType: 'sine',
+			periodicWaveCallCount: 0,
 			state: 'running',
 			currentTime: 0,
 			destination: destination as AudioDestinationNode,
 			resume: async () => undefined,
-			createOscillator: () => {
+			createPeriodicWave() {
+				fakeAudioContext.periodicWaveCallCount += 1
+				return {} as PeriodicWave
+			},
+			createOscillator() {
 				const oscillator = {
 					type: 'sine',
 					frequency: { value: 0 },
@@ -124,6 +152,9 @@ export class PrimitiveSynthTest {
 					connect: () => {},
 					disconnect: () => {},
 					start: () => {},
+					setPeriodicWave: () => {
+						fakeAudioContext.lastOscillatorType = 'custom'
+					},
 					stop() {
 						oscillator.onended?.()
 					}
@@ -135,6 +166,7 @@ export class PrimitiveSynthTest {
 				connect: () => {},
 				disconnect: () => {}
 			}) as unknown as GainNode
-		} as unknown as AudioContext
+		}
+		return fakeAudioContext as unknown as AudioContext
 	}
 }

@@ -1,11 +1,13 @@
 import { LitElement, css, html, type TemplateResult } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
 import { Spec } from '@shared/lll.lll'
+import { ImageWaveformBank } from './ImageWaveformBank.lll'
+import { ImageWaveformRow } from './ImageWaveformRow.lll'
 import { KeyboardPitch } from './KeyboardPitch.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
 
-@Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono and poly playback.')
+@Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono and poly playback plus uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
 	static styles = css`
@@ -210,6 +212,16 @@ export class App extends LitElement {
 			gap: 16px;
 		}
 
+		.upload-controls {
+			display: grid;
+			gap: 12px;
+		}
+
+		.row-slider {
+			width: 100%;
+			accent-color: #cf6f36;
+		}
+
 		.upload-button {
 			display: inline-flex;
 			align-items: center;
@@ -376,6 +388,21 @@ export class App extends LitElement {
 
 	@state()
 	private uploadedImageName: string = 'No image selected'
+
+	@state()
+	private waveformLabel: string = 'Sine'
+
+	@state()
+	private waveformDetailText: string = 'No uploaded image row is active yet.'
+
+	@state()
+	private selectedRowIndex: number = 0
+
+	@state()
+	private availableRowCount: number = 0
+
+	private imageWaveformRows: ImageWaveformRow[] = []
+	private readonly imageWaveformBank = new ImageWaveformBank()
 
 	private readonly synth = new PrimitiveSynth({
 		monophonic: false,
@@ -547,8 +574,8 @@ export class App extends LitElement {
 		return `${activePitch.frequencyHz.toFixed(2)} Hz · ${activePitch.noteLabel}`
 	}
 
-	@Spec('Updates the uploaded image preview from one file input selection so the chosen image appears in the right-hand panel.')
-	private onImageSelection(event: Event) {
+	@Spec('Updates the uploaded image preview and image-row waveform bank from one file selection so the synth can switch away from the sine oscillator.')
+	private async onImageSelection(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const file = input?.files?.[0] ?? null
 		if (file === null) {
@@ -557,6 +584,61 @@ export class App extends LitElement {
 		this.revokeUploadedImageUrl()
 		this.uploadedImageUrl = URL.createObjectURL(file)
 		this.uploadedImageName = file.name
+		try {
+			const waveformBank = await this.imageWaveformBank.loadFromFile(file)
+			this.imageWaveformRows = waveformBank.rows
+			this.availableRowCount = waveformBank.rows.length
+			this.selectedRowIndex = this.chooseDefaultRowIndex(waveformBank.rows)
+			this.applySelectedWaveformRow()
+			this.waveformDetailText = `${waveformBank.width} × ${waveformBank.height} image loaded. Row ${this.selectedRowIndex + 1} is active for playback.`
+		} catch (_error) {
+			this.imageWaveformRows = []
+			this.availableRowCount = 0
+			this.selectedRowIndex = 0
+			this.synth.setWaveformSamples(null)
+			this.waveformLabel = 'Sine'
+			this.waveformDetailText = 'The selected image could not be decoded into waveform rows, so the synth stayed on the sine oscillator.'
+		}
+	}
+
+	@Spec('Selects a default uploaded row that is likely to sound distinct by preferring the brightest row in the image bank.')
+	private chooseDefaultRowIndex(rows: ImageWaveformRow[]): number {
+		let brightestRowIndex = 0
+		let brightestAverage = -1
+		for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+			const averageBrightness = rows[rowIndex]?.averageBrightness ?? -1
+			if (averageBrightness <= brightestAverage) {
+				continue
+			}
+			brightestAverage = averageBrightness
+			brightestRowIndex = rowIndex
+		}
+		return brightestRowIndex
+	}
+
+	@Spec('Applies the currently selected uploaded image row to the synth and refreshes the visible waveform status cards.')
+	private applySelectedWaveformRow() {
+		const selectedRow = this.imageWaveformRows[this.selectedRowIndex] ?? null
+		if (selectedRow === null) {
+			this.synth.setWaveformSamples(null)
+			this.waveformLabel = 'Sine'
+			this.waveformDetailText = 'No uploaded image row is active yet.'
+			return
+		}
+		this.synth.setWaveformSamples(selectedRow.samples)
+		this.waveformLabel = `Image row ${this.selectedRowIndex + 1}`
+		this.waveformDetailText = `Uploaded waveform row ${this.selectedRowIndex + 1} of ${this.availableRowCount} is active. Average brightness ${(selectedRow.averageBrightness * 100).toFixed(1)}%.`
+	}
+
+	@Spec('Handles a visible row selection change so users can audition different uploaded image rows as stable waveforms.')
+	private onRowSelectionChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null
+		const nextRowIndex = Number(input?.value ?? '0')
+		if (Number.isFinite(nextRowIndex) === false) {
+			return
+		}
+		this.selectedRowIndex = Math.max(0, Math.min(nextRowIndex, Math.max(this.availableRowCount - 1, 0)))
+		this.applySelectedWaveformRow()
 	}
 
 	@Spec('Releases the current uploaded image object URL when a new preview replaces it or the app unmounts.')
@@ -568,17 +650,17 @@ export class App extends LitElement {
 		this.uploadedImageUrl = null
 	}
 
-	@Spec('Renders the QWERTY keyboard guide, mono-poly switch, visible synth status cards, and the uploaded image panel.')
+	@Spec('Renders the QWERTY keyboard guide, mono-poly switch, visible synth status cards, and the uploaded image waveform panel.')
 	render(): TemplateResult {
 		return html`
 			<main>
 				<header>
 					<div class="header-copy">
-						<p class="eyebrow">Phase 2 — Playable QWERTY Keyboard</p>
+						<p class="eyebrow">Phase 3 — Image Upload and Row-Based Waveform Synth</p>
 						<h1>Scanline Synth</h1>
 						<p class="lead">
-							The synth now feels more like a warm vintage instrument panel, with mapped QWERTY notes,
-							retro status displays, and a mono-poly performance switch.
+							Upload an image, turn its horizontal rows into single-cycle waveforms, and keep playing the
+							QWERTY keyboard while selecting which row shapes the active timbre.
 						</p>
 					</div>
 					<div class="brand-plate" aria-label="Instrument panel badge">
@@ -626,7 +708,7 @@ export class App extends LitElement {
 					<section class="status-grid" aria-label="Keyboard synth status">
 						<div class="status-card">
 							<div class="status-label">Waveform</div>
-							<div id="waveform-value" class="status-value">Sine</div>
+							<div id="waveform-value" class="status-value">${this.waveformLabel}</div>
 						</div>
 						<div class="status-card">
 							<div class="status-label">Envelope</div>
@@ -667,6 +749,20 @@ export class App extends LitElement {
 						<label class="upload-button" for="image-upload-input">Upload image</label>
 						<input id="image-upload-input" class="upload-input" type="file" accept="image/*" @change=${this.onImageSelection} />
 						<div class="plate-value" id="uploaded-image-name">${this.uploadedImageName}</div>
+						<div class="upload-controls">
+							<div class="status-label">Waveform row select</div>
+							<input
+								id="waveform-row-slider"
+								class="row-slider"
+								type="range"
+								min="0"
+								max=${Math.max(this.availableRowCount - 1, 0)}
+								.value=${String(this.selectedRowIndex)}
+								?disabled=${this.availableRowCount <= 1}
+								@input=${this.onRowSelectionChange}
+							/>
+							<div id="waveform-row-value" class="plate-value">${this.availableRowCount === 0 ? 'No rows loaded' : `Row ${this.selectedRowIndex + 1} of ${this.availableRowCount}`}</div>
+						</div>
 						<div class="upload-preview" id="uploaded-image-preview">
 							${this.uploadedImageUrl === null
 								? html`<div class="upload-placeholder">Choose an image to show it here on the right side of the panel.</div>`
@@ -676,6 +772,7 @@ export class App extends LitElement {
 				</section>
 
 				<section class="detail" id="note-detail-text">${this.noteDetailText}</section>
+				<section class="detail" id="waveform-detail-text">${this.waveformDetailText}</section>
 			</main>
 		`
 	}
