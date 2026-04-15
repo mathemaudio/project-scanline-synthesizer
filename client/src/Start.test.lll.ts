@@ -6,7 +6,7 @@ import { Start } from './Start.lll'
 export class StartTest {
 	testType = 'behavioral'
 
-	@Scenario('renders app-root into #app when container exists')
+	@Scenario('Renders app-root into #app when container exists')
 	static async rendersAppIntoContainer(subjectFactory: SubjectFactory<Start>, scenario: ScenarioParameter): Promise<{ renderedTagName: string }> {
 		const assert: AssertFn = scenario.assert
 		const waitFor: WaitForFn = scenario.waitFor

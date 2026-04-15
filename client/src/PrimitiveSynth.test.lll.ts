@@ -83,6 +83,30 @@ export class PrimitiveSynthTest {
 		return { didStart, activeVoiceCount, oscillatorType, periodicWaveCallCount }
 	}
 
+	@Scenario('changing waveform samples while a note is already sounding refreshes the active oscillator immediately')
+	static async refreshesActiveVoicesWhenWaveformChanges(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ activeVoiceCount: number, periodicWaveCallCount: number, oscillatorType: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			createAudioContext: () => fakeAudioContext
+		})
+		const initialWaveformSamples = [-1, -0.5, 0.5, 1]
+		const replacementWaveformSamples = [1, 0.5, -0.5, -1]
+		synth.setWaveformSamples(initialWaveformSamples)
+		await synth.startNote(261.625565)
+		synth.setWaveformSamples(replacementWaveformSamples)
+
+		const activeVoiceCount = synth.getActiveVoiceCount()
+		const oscillatorType = (fakeAudioContext as unknown as { lastOscillatorType: string }).lastOscillatorType
+		const periodicWaveCallCount = (fakeAudioContext as unknown as { periodicWaveCallCount: number }).periodicWaveCallCount
+
+		assert(activeVoiceCount === 1, 'Expected the original note to keep sounding while its waveform refreshes')
+		assert(oscillatorType === 'custom', 'Expected the active oscillator to keep using a custom waveform after the live update')
+		assert(periodicWaveCallCount === 2, 'Expected the synth to rebuild the periodic wave when waveform samples change during playback')
+		return { activeVoiceCount, periodicWaveCallCount, oscillatorType }
+	}
+
 	@Scenario('missing audio context reports unsupported without starting voices')
 	static async reportsUnsupportedWhenAudioContextIsMissing(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, states: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert

@@ -47,6 +47,7 @@ export class PrimitiveSynth {
 	@Spec('Replaces the default sine oscillator shape with one uploaded image row waveform or clears back to sine when null is provided.')
 	setWaveformSamples(waveformSamples: number[] | null) {
 		this.waveformSamples = waveformSamples === null ? null : [...waveformSamples]
+		this.refreshActiveVoiceWaveforms()
 	}
 
 	@Spec('Reports how many voices are currently sounding so the UI can reflect the synth engine output.')
@@ -225,6 +226,16 @@ export class PrimitiveSynth {
 		}
 		const periodicWave = this.createPeriodicWaveFromSamples(audioContext, this.waveformSamples)
 		oscillator.setPeriodicWave(periodicWave)
+	}
+
+	@Spec('Refreshes every currently sounding oscillator so scanline row changes can retimbre held notes without retriggering them.')
+	private refreshActiveVoiceWaveforms() {
+		if (this.audioContext === null || this.activeVoicesByFrequencyKey.size === 0) {
+			return
+		}
+		for (const voice of this.activeVoicesByFrequencyKey.values()) {
+			this.configureOscillatorWaveform(voice.oscillator, this.audioContext)
+		}
 	}
 
 	@Spec('Builds a periodic wave from time-domain samples by converting them into Fourier coefficients for Web Audio playback.')
