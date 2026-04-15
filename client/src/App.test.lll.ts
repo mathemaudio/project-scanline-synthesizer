@@ -6,12 +6,12 @@ import { App } from './App.lll'
 export class AppTest {
 	testType = 'behavioral'
 
-	@Scenario('polyphonic mode shows two sounding voices for Q then W')
+	@Scenario('polyphonic mode shows two sounding voices for Q then W!')
 	static async showsPolyphonicVoiceCountForTwoHeldKeys(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ voiceMode: string, soundingVoices: string, activeKey: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
-		;(globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
 		try {
 			const app = await subjectFactory()
 			await this.prepareMountedApp(app, waitFor)
@@ -44,7 +44,7 @@ export class AppTest {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
-		;(globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
 		try {
 			const app = await subjectFactory()
 			await this.prepareMountedApp(app, waitFor)
@@ -87,11 +87,11 @@ export class AppTest {
 		const originalRevokeObjectUrl = URL.revokeObjectURL
 		const originalImage = (globalThis as Record<string, unknown>)['Image']
 		const originalHTMLElement = (globalThis as Record<string, unknown>)['HTMLElement']
-		;(globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
 		URL.createObjectURL = ((_file: Blob | MediaSource) => this.behavioralPreviewImageUrl) as typeof URL.createObjectURL
 		URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL
-		;(globalThis as Record<string, unknown>)['Image'] = this.createBehavioralImageConstructor()
-		;(globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
+			; (globalThis as Record<string, unknown>)['Image'] = this.createBehavioralImageConstructor()
+			; (globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
 		try {
 			const app = await subjectFactory()
 			await this.prepareMountedApp(app, waitFor)
@@ -140,7 +140,7 @@ export class AppTest {
 	}
 
 	@Scenario('moving the row selector changes the visible active image row while keyboard play still works')
-	static async changesSelectedImageRowAndKeepsKeyboardPlayable(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ waveform: string, rowValue: string, activeKey: string, noteState: string }> {
+	static async changesSelectedImageRowAndKeepsKeyboardPlayable(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ waveform: string, rowValue: string, previewMeta: string, activeKey: string, noteState: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -148,11 +148,11 @@ export class AppTest {
 		const originalRevokeObjectUrl = URL.revokeObjectURL
 		const originalImage = (globalThis as Record<string, unknown>)['Image']
 		const originalHTMLElement = (globalThis as Record<string, unknown>)['HTMLElement']
-		;(globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
 		URL.createObjectURL = ((_file: Blob | MediaSource) => this.behavioralPreviewImageUrl) as typeof URL.createObjectURL
 		URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL
-		;(globalThis as Record<string, unknown>)['Image'] = this.createBehavioralImageConstructor()
-		;(globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
+			; (globalThis as Record<string, unknown>)['Image'] = this.createBehavioralImageConstructor()
+			; (globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
 		try {
 			const app = await subjectFactory()
 			await this.prepareMountedApp(app, waitFor)
@@ -177,14 +177,19 @@ export class AppTest {
 			await waitFor(() => this.readText(app, '#active-key-value') === 'Q', 'Expected QWERTY keyboard playback to remain active after selecting an image row')
 			const waveform = this.readText(app, '#waveform-value')
 			const rowValue = this.readText(app, '#waveform-row-value')
+			const previewMeta = this.readTextFromShadowHost(app, 'image-waveform-preview', '#waveform-preview-meta')
+			const previewCanvas = app.shadowRoot?.querySelector('image-waveform-preview')?.shadowRoot?.querySelector<HTMLCanvasElement>('#waveform-preview-canvas')
 			const activeKey = this.readText(app, '#active-key-value')
 			const noteState = this.readText(app, '#note-state-value')
 
 			assert(waveform === 'Image row 2', 'Expected moving the slider to activate the second image row')
 			assert(rowValue === 'Row 2 of 2', 'Expected row status text to follow the slider')
+			assert(previewMeta.includes('Row 2 of 2'), 'Expected the visible waveform preview metadata to follow the selected row')
+			assert(previewCanvas !== null && previewCanvas !== undefined, 'Expected the waveform preview canvas to render below the uploaded image')
+			assert(previewCanvas.width > 0 && previewCanvas.height > 0, 'Expected the waveform preview canvas to be sized for drawing')
 			assert(activeKey === 'Q', 'Expected keyboard control to remain playable after selecting a new image row')
 			assert(noteState === 'Playing', 'Expected a played key to keep the synth visibly playing after image upload')
-			return { waveform, rowValue, activeKey, noteState }
+			return { waveform, rowValue, previewMeta, activeKey, noteState }
 		} finally {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
 			this.restoreCanvasTestDouble()
@@ -239,10 +244,23 @@ export class AppTest {
 		return element.textContent?.trim() ?? ''
 	}
 
+	@Spec('Reads visible text from one nested shadow host inside the app so behavioral scenarios can inspect custom element output.')
+	private static readTextFromShadowHost(app: App, hostSelector: string, innerSelector: string): string {
+		const host = app.shadowRoot?.querySelector<HTMLElement>(hostSelector)
+		if (host === null || host === undefined) {
+			throw new Error(`App shadow host not found: ${hostSelector}`)
+		}
+		const element = host.shadowRoot?.querySelector<HTMLElement>(innerSelector)
+		if (element === null || element === undefined) {
+			throw new Error(`Nested shadow element not found: ${hostSelector} -> ${innerSelector}`)
+		}
+		return element.textContent?.trim() ?? ''
+	}
+
 	@Spec('Installs a tiny canvas test double that exposes deterministic image rows for behavioral upload scenarios.')
 	private static installCanvasTestDouble() {
 		const originalCreateElement = document.createElement.bind(document)
-		;(document as unknown as { __scanlineOriginalCreateElement?: typeof document.createElement }).__scanlineOriginalCreateElement = originalCreateElement
+			; (document as unknown as { __scanlineOriginalCreateElement?: typeof document.createElement }).__scanlineOriginalCreateElement = originalCreateElement
 		document.createElement = ((tagName: string, options?: ElementCreationOptions) => {
 			if (tagName.toLowerCase() !== 'canvas') {
 				return originalCreateElement(tagName, options)
@@ -252,8 +270,8 @@ export class AppTest {
 				drawImage: () => undefined,
 				getImageData: () => new ImageData(
 					new Uint8ClampedArray([
-						255, 255, 255, 255,	0, 0, 0, 255,
-						0, 0, 0, 255,	255, 255, 255, 255
+						255, 255, 255, 255, 0, 0, 0, 255,
+						0, 0, 0, 255, 255, 255, 255, 255
 					]),
 					2,
 					2
@@ -294,10 +312,10 @@ export class AppTest {
 					type: 'sine',
 					frequency: { value: 0 },
 					onended: null as (() => void) | null,
-					connect: () => {},
-					disconnect: () => {},
-					start: () => {},
-					setPeriodicWave: () => {},
+					connect: () => { },
+					disconnect: () => { },
+					start: () => { },
+					setPeriodicWave: () => { },
 					stop() {
 						oscillator.onended?.()
 					}
@@ -307,7 +325,7 @@ export class AppTest {
 			createGain(): GainNode {
 				const gain = {
 					value: 0,
-					cancelScheduledValues: () => {},
+					cancelScheduledValues: () => { },
 					setValueAtTime(value: number) {
 						this.value = value
 					},
@@ -320,8 +338,8 @@ export class AppTest {
 				}
 				return {
 					gain,
-					connect: () => {},
-					disconnect: () => {}
+					connect: () => { },
+					disconnect: () => { }
 				} as unknown as GainNode
 			}
 		} as unknown as new () => AudioContext

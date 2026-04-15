@@ -6,6 +6,7 @@ import { ImageWaveformRow } from './ImageWaveformRow.lll'
 import { KeyboardPitch } from './KeyboardPitch.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
+import './ImageWaveformPreview.lll'
 
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono and poly playback plus uploaded image row waveforms.')
 @customElement('app-root')
@@ -266,6 +267,11 @@ export class App extends LitElement {
 			text-align: center;
 			color: rgba(244, 235, 212, 0.7);
 			line-height: 1.6;
+		}
+
+		.waveform-preview-panel {
+			display: grid;
+			gap: 10px;
 		}
 
 		.switch-card {
@@ -767,6 +773,15 @@ export class App extends LitElement {
 							${this.uploadedImageUrl === null
 								? html`<div class="upload-placeholder">Choose an image to show it here on the right side of the panel.</div>`
 								: html`<img id="uploaded-image-element" src=${this.uploadedImageUrl} alt=${`Uploaded preview for ${this.uploadedImageName}`} />`}
+						</div>
+						<div class="waveform-preview-panel">
+							<div class="status-label">Selected waveform</div>
+							<image-waveform-preview
+								.samples=${[...(this.imageWaveformRows[this.selectedRowIndex]?.samples ?? [])]}
+								previewLabel=${'Selected waveform preview'}
+								.rowIndex=${this.availableRowCount === 0 ? -1 : this.selectedRowIndex}
+								.rowCount=${this.availableRowCount}
+							></image-waveform-preview>
 						</div>
 					</section>
 				</section>

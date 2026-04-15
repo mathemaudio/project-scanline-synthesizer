@@ -11,13 +11,13 @@ export class StartTest {
 		const assert: AssertFn = scenario.assert
 		const waitFor: WaitForFn = scenario.waitFor
 		const originalHTMLElement = (globalThis as Record<string, unknown>)['HTMLElement']
-		;(globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
+			; (globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
 		try {
 			const root = document.querySelector<HTMLElement>('#app')
 			assert(root !== null, 'Expected document #app container to be available')
 
 			const start = await subjectFactory()
-			assert(start instanceof Start, 'Expected subjectFactory to create Start')
+			assert(start instanceof Start, 'Expected subjectFactory to return instance of Start, but got ' + typeof start)
 			await waitFor(() => root.querySelector('app-root') !== null, 'Expected Start bootstrap to render app-root into #app')
 			const renderedElement = root.querySelector('app-root')
 			assert(renderedElement !== null, 'Expected Start to render app-root into #app')
