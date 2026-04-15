@@ -140,7 +140,7 @@ export class AppTest {
 	}
 
 	@Scenario('moving the row selector changes the visible active image row while keyboard play still works')
-	static async changesSelectedImageRowAndKeepsKeyboardPlayable(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ waveform: string, rowValue: string, previewMeta: string, activeKey: string, noteState: string }> {
+	static async changesSelectedImageRowAndKeepsKeyboardPlayable(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ waveform: string, rowValue: string, previewMeta: string, selectedRowLineTop: string, activeKey: string, noteState: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -179,6 +179,7 @@ export class AppTest {
 			const rowValue = this.readText(app, '#waveform-row-value')
 			const previewMeta = this.readTextFromShadowHost(app, 'image-waveform-preview', '#waveform-preview-meta')
 			const previewCanvas = app.shadowRoot?.querySelector('image-waveform-preview')?.shadowRoot?.querySelector<HTMLCanvasElement>('#waveform-preview-canvas')
+			const selectedRowLineTop = this.readStyleFromShadowHost(app, 'uploaded-image-preview', '#selected-row-line', 'top')
 			const activeKey = this.readText(app, '#active-key-value')
 			const noteState = this.readText(app, '#note-state-value')
 
@@ -187,9 +188,10 @@ export class AppTest {
 			assert(previewMeta.includes('Row 2 of 2'), 'Expected the visible waveform preview metadata to follow the selected row')
 			assert(previewCanvas !== null && previewCanvas !== undefined, 'Expected the waveform preview canvas to render below the uploaded image')
 			assert(previewCanvas.width > 0 && previewCanvas.height > 0, 'Expected the waveform preview canvas to be sized for drawing')
+			assert(selectedRowLineTop === '75%', 'Expected the selected-row line to move to the center of the second row out of two')
 			assert(activeKey === 'Q', 'Expected keyboard control to remain playable after selecting a new image row')
 			assert(noteState === 'Playing', 'Expected a played key to keep the synth visibly playing after image upload')
-			return { waveform, rowValue, previewMeta, activeKey, noteState }
+			return { waveform, rowValue, previewMeta, selectedRowLineTop, activeKey, noteState }
 		} finally {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
 			this.restoreCanvasTestDouble()
@@ -255,6 +257,19 @@ export class AppTest {
 			throw new Error(`Nested shadow element not found: ${hostSelector} -> ${innerSelector}`)
 		}
 		return element.textContent?.trim() ?? ''
+	}
+
+	@Spec('Reads one inline style property from a nested shadow host element inside the app for visible behavioral UI checks.')
+	private static readStyleFromShadowHost(app: App, hostSelector: string, innerSelector: string, propertyName: 'top'): string {
+		const host = app.shadowRoot?.querySelector<HTMLElement>(hostSelector)
+		if (host === null || host === undefined) {
+			throw new Error(`App shadow host not found: ${hostSelector}`)
+		}
+		const element = host.shadowRoot?.querySelector<HTMLElement>(innerSelector)
+		if (element === null || element === undefined) {
+			throw new Error(`Nested shadow element not found: ${hostSelector} -> ${innerSelector}`)
+		}
+		return element.style[propertyName]
 	}
 
 	@Spec('Installs a tiny canvas test double that exposes deterministic image rows for behavioral upload scenarios.')

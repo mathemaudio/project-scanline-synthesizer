@@ -7,6 +7,7 @@ import { KeyboardPitch } from './KeyboardPitch.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
 import './ImageWaveformPreview.lll'
+import './UploadedImagePreview.lll'
 
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono and poly playback plus uploaded image row waveforms.')
 @customElement('app-root')
@@ -244,30 +245,6 @@ export class App extends LitElement {
 			display: none;
 		}
 
-		.upload-preview {
-			display: grid;
-			place-items: center;
-			min-height: 300px;
-			padding: 16px;
-			border-radius: 16px;
-			border: 1px dashed rgba(255, 225, 173, 0.2);
-			background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.02));
-			overflow: hidden;
-		}
-
-		.upload-preview img {
-			max-width: 100%;
-			max-height: 340px;
-			object-fit: contain;
-			border-radius: 12px;
-			box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
-		}
-
-		.upload-placeholder {
-			text-align: center;
-			color: rgba(244, 235, 212, 0.7);
-			line-height: 1.6;
-		}
 
 		.waveform-preview-panel {
 			display: grid;
@@ -769,11 +746,13 @@ export class App extends LitElement {
 							/>
 							<div id="waveform-row-value" class="plate-value">${this.availableRowCount === 0 ? 'No rows loaded' : `Row ${this.selectedRowIndex + 1} of ${this.availableRowCount}`}</div>
 						</div>
-						<div class="upload-preview" id="uploaded-image-preview">
-							${this.uploadedImageUrl === null
-								? html`<div class="upload-placeholder">Choose an image to show it here on the right side of the panel.</div>`
-								: html`<img id="uploaded-image-element" src=${this.uploadedImageUrl} alt=${`Uploaded preview for ${this.uploadedImageName}`} />`}
-						</div>
+						<uploaded-image-preview
+							id="uploaded-image-preview"
+							.imageUrl=${this.uploadedImageUrl}
+							.imageName=${this.uploadedImageName}
+							.selectedRowIndex=${this.selectedRowIndex}
+							.rowCount=${this.availableRowCount}
+						></uploaded-image-preview>
 						<div class="waveform-preview-panel">
 							<div class="status-label">Selected waveform</div>
 							<image-waveform-preview
