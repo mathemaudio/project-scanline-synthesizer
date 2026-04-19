@@ -6,8 +6,10 @@ import { ImageWaveformBank } from './ImageWaveformBank.lll'
 import { ImageWaveformRow } from './ImageWaveformRow.lll'
 import { KeyboardPitch } from './KeyboardPitch.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
+import { AppSoundDesignPanel } from './app/AppSoundDesignPanel.lll'
 import { WaveformCycleCrossfader } from './synth/WaveformCycleCrossfader.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
+import { EffectsSettings } from './synth/EffectsSettings.lll'
 import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
 import './ImageWaveformPreview.lll'
@@ -16,74 +18,88 @@ import './UploadedImagePreview.lll'
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono-poly voice behavior, three playback-shaping modes, and uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
+	public readonly appSoundDesignPanel = new AppSoundDesignPanel(this)
+
 	static styles = AppViewStyles.styles
 	@state()
-	private noteStateLabel: string = 'Ready to play'
+	public noteStateLabel: string = 'Ready to play'
 	@state()
 	private noteDetailText: string = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
 	@state()
-	private activeNoteLabel: string = '—'
+	public activeNoteLabel: string = '—'
 	@state()
-	private activeKeyLabel: string = '—'
+	public activeKeyLabel: string = '—'
 	@state()
-	private pitchLabel: string = 'No active note'
+	public pitchLabel: string = 'No active note'
 	@state()
-	private triggerCount: number = 0
+	public triggerCount: number = 0
 	@state()
-	private isMonophonic: boolean = false
+	public isMonophonic: boolean = false
 
 	@state()
-	private soundingVoiceCount: number = 0
+	public soundingVoiceCount: number = 0
 
 	@state()
-	private uploadedImageUrl: string | null = null
+	public uploadedImageUrl: string | null = null
 
 	@state()
-	private uploadedImageName: string = 'No image selected'
+	public uploadedImageName: string = 'No image selected'
 
 	@state()
-	private waveformLabel: string = 'Sine'
+	public waveformLabel: string = 'Sine'
 
 	@state()
-	private uploadedPreviewWidthPx: number = 0
+	public uploadedPreviewWidthPx: number = 0
 
 	@state()
 	private waveformDetailText: string = 'No uploaded image row is active yet.'
 
 	@state()
-	private selectedRowIndex: number = 0
+	public selectedRowIndex: number = 0
 
 	@state()
-	private availableRowCount: number = 0
+	public availableRowCount: number = 0
 
 	@state()
-	private playbackMode: SynthPlaybackMode = 'cutoff'
+	public playbackMode: SynthPlaybackMode = 'cutoff'
 
 	@state()
-	private filterAttackMs: number = 40
+	public filterAttackMs: number = 40
 
 	@state()
-	private filterDecayMs: number = 725
+	public filterDecayMs: number = 725
 
 	@state()
-	private filterSustainPercent: number = 15
+	public filterSustainPercent: number = 15
 
 	@state()
-	private filterReleaseMs: number = 220
+	public filterReleaseMs: number = 220
 
 	@state()
-	private filterBaseCutoffHz: number = 480
+	public filterBaseCutoffHz: number = 480
 
 	@state()
-	private filterPeakCutoffHz: number = 2600
+	public filterPeakCutoffHz: number = 2600
 
 	@state()
-	private filterResonance: number = 13
+	public filterResonance: number = 13
 
 	@state()
-	private waveformCrossfadePercent: number = 0
+	public chorusMixPercent: number = 22
+	@state()
+	public chorusFeedbackPercent: number = 8
+	@state()
+	public chorusDepthMs: number = 8
+	@state()
+	public delayMixPercent: number = 18
+	@state()
+	public delayFeedbackPercent: number = 24
+	@state()
+	public delayTimeMs: number = 280
+	@state()
+	public waveformCrossfadePercent: number = 0
 
-	private imageWaveformRows: ImageWaveformRow[] = []
+	public imageWaveformRows: ImageWaveformRow[] = []
 	private readonly imageWaveformBank = new ImageWaveformBank()
 	private readonly waveformCycleCrossfader = new WaveformCycleCrossfader()
 
@@ -98,6 +114,14 @@ export class App extends LitElement {
 			baseCutoffHz: 480,
 			peakCutoffHz: 2600,
 			resonance: 13
+		},
+		effectsSettings: {
+			chorusMix: 0.22,
+			chorusFeedback: 0.08,
+			chorusDepthMs: 8,
+			delayMix: 0.18,
+			delayFeedback: 0.24,
+			delayTimeMs: 280
 		},
 		onStateChange: (state) => this.onSynthStateChange(state)
 	})
@@ -179,17 +203,18 @@ export class App extends LitElement {
 	private async onPlaybackModeChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const nextPlaybackMode = input?.value
-		if (nextPlaybackMode !== 'raw' && nextPlaybackMode !== 'cutoff' && nextPlaybackMode !== 'pluck') {
+		if (nextPlaybackMode !== 'raw' && nextPlaybackMode !== 'cutoff' && nextPlaybackMode !== 'pluck' && nextPlaybackMode !== 'effects') {
 			return
 		}
 		this.playbackMode = nextPlaybackMode
 		this.synth.setPlaybackMode(this.playbackMode)
 		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
+		this.synth.setEffectsSettings(this.createEffectsSettings())
 		await this.rebuildHeldNotesForPlaybackChange()
 	}
 
 	@Spec('Applies one visible filter-setting slider change and forwards the updated cutoff envelope to the synth engine.')
-	private onFilterSettingChange(event: Event) {
+	public onFilterSettingChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
@@ -220,6 +245,35 @@ export class App extends LitElement {
 		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
 	}
 
+	@Spec('Applies one visible effects slider change and forwards the updated chorus and delay settings to the synth engine.')
+	public onEffectsSettingChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null
+		const nextValue = Number(input?.value ?? '0')
+		if (Number.isFinite(nextValue) === false) {
+			return
+		}
+		const settingName = input?.name ?? ''
+		if (settingName === 'chorus-mix-percent') {
+			this.chorusMixPercent = nextValue
+		}
+		if (settingName === 'chorus-feedback-percent') {
+			this.chorusFeedbackPercent = nextValue
+		}
+		if (settingName === 'chorus-depth-ms') {
+			this.chorusDepthMs = nextValue
+		}
+		if (settingName === 'delay-mix-percent') {
+			this.delayMixPercent = nextValue
+		}
+		if (settingName === 'delay-feedback-percent') {
+			this.delayFeedbackPercent = nextValue
+		}
+		if (settingName === 'delay-time-ms') {
+			this.delayTimeMs = nextValue
+		}
+		this.synth.setEffectsSettings(this.createEffectsSettings())
+	}
+
 	@Spec('Rebuilds any held notes after a playback-mode change so the currently selected keys adopt the new voice routing immediately.')
 	private async rebuildHeldNotesForPlaybackChange() {
 		const heldPitches = this.qwertyKeyboard.getHeldPitches()
@@ -245,6 +299,18 @@ export class App extends LitElement {
 		}
 	}
 
+	@Spec('Builds the current chorus and delay settings object from the visible slider state.')
+	private createEffectsSettings(): EffectsSettings {
+		return {
+			chorusMix: this.chorusMixPercent / 100,
+			chorusFeedback: this.chorusFeedbackPercent / 100,
+			chorusDepthMs: this.chorusDepthMs,
+			delayMix: this.delayMixPercent / 100,
+			delayFeedback: this.delayFeedbackPercent / 100,
+			delayTimeMs: this.delayTimeMs
+		}
+	}
+
 	@Spec('Maps synth engine state changes to visible keyboard status text that reflects the current voice mode and playback-shaping mode.')
 	private onSynthStateChange(state: 'ready' | 'playing' | 'releasing' | 'unsupported') {
 		this.updateSoundingVoiceCount()
@@ -252,6 +318,10 @@ export class App extends LitElement {
 			this.noteStateLabel = 'Ready to play'
 			if (this.playbackMode === 'cutoff') {
 				this.noteDetailText = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
+				return
+			}
+			if (this.playbackMode === 'effects') {
+				this.noteDetailText = 'Effects mode is armed. New notes play dry while shared chorus width and tempo-free delay add space behind the active waveform.'
 				return
 			}
 			if (this.playbackMode === 'pluck') {
@@ -271,6 +341,13 @@ export class App extends LitElement {
 				this.noteDetailText = activePitch === null
 					? 'The filter ADSR is ready to open and settle the low-pass cutoff on the next played note.'
 					: `${activePitch.noteLabel} is playing through the cutoff mode. The filter opens quickly, then settles into its sustain cutoff while the note stays held.`
+				return
+			}
+			if (this.playbackMode === 'effects') {
+				this.noteStateLabel = 'Playing'
+				this.noteDetailText = activePitch === null
+					? 'Effects mode is ready with subtle chorus spread and a short echo tail.'
+					: `${activePitch.noteLabel} is playing through chorus and delay, adding width first and then a spacious repeat behind the note.`
 				return
 			}
 			if (this.playbackMode === 'pluck') {
@@ -299,6 +376,10 @@ export class App extends LitElement {
 			this.noteStateLabel = 'Releasing'
 			if (this.playbackMode === 'cutoff') {
 				this.noteDetailText = 'All held keys are up, so the filtered voice is fading out while the cutoff closes back toward its base position.'
+				return
+			}
+			if (this.playbackMode === 'effects') {
+				this.noteDetailText = 'All held keys are up, so the dry note is fading while the chorus width and delay tail decay behind it.'
 				return
 			}
 			if (this.playbackMode === 'pluck') {
@@ -368,7 +449,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Updates the uploaded image preview and image-row waveform bank from one file selection so the synth can switch away from the built-in oscillator shapes.')
-	private async onImageSelection(event: Event) {
+	public async onImageSelection(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const file = input?.files?.[0] ?? null
 		if (file === null) {
@@ -426,7 +507,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Handles a visible row selection change so users can audition different uploaded image rows as stable waveforms.')
-	private onRowSelectionChange(event: Event) {
+	public onRowSelectionChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const nextRowIndex = Number(input?.value ?? '0')
 		if (Number.isFinite(nextRowIndex) === false) {
@@ -437,12 +518,12 @@ export class App extends LitElement {
 	}
 
 	@Spec('Tracks the currently rendered uploaded image width so the single-cycle strip can match it directly below the image.')
-	private onUploadedImageWidthChange(event: CustomEvent<number>) {
+	public onUploadedImageWidthChange(event: CustomEvent<number>) {
 		this.uploadedPreviewWidthPx = Math.max(0, event.detail)
 	}
 
 	@Spec('Applies one visible loop-crossfade slider change so neighboring waveform cycles blend more smoothly at their seam.')
-	private onWaveformCrossfadeChange(event: Event) {
+	public onWaveformCrossfadeChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
@@ -458,12 +539,12 @@ export class App extends LitElement {
 	}
 
 	@Spec('Builds the visible three-cycle preview samples so two neighboring overlaps shorten the total preview span.')
-	private createWaveformPreviewSamples(samples: number[]): number[] {
+	public createWaveformPreviewSamples(samples: number[]): number[] {
 		return this.waveformCycleCrossfader.createThreeCyclePreviewSamples(samples, this.waveformCrossfadePercent / 100)
 	}
 
 	@Spec('Returns the two seam markers for the visible preview after overlap-add shortening is applied between neighboring cycles.')
-	private createWaveformPreviewSeamRatios(samples: number[]): number[] {
+	public createWaveformPreviewSeamRatios(samples: number[]): number[] {
 		return this.waveformCycleCrossfader.createThreeCyclePreviewSeamRatios(samples.length, this.waveformCrossfadePercent / 100)
 	}
 
@@ -484,9 +565,12 @@ export class App extends LitElement {
 	}
 
 	@Spec('Returns the visible playback-mode label used in the right-side settings panel and compact summaries.')
-	private getPlaybackModeLabel(): string {
+	public getPlaybackModeLabel(): string {
 		if (this.playbackMode === 'cutoff') {
 			return 'Cutoff'
+		}
+		if (this.playbackMode === 'effects') {
+			return 'Effects'
 		}
 		if (this.playbackMode === 'pluck') {
 			return 'Pluck'
@@ -495,9 +579,12 @@ export class App extends LitElement {
 	}
 
 	@Spec('Returns the visible envelope summary card text appropriate for the currently selected playback mode.')
-	private getEnvelopeSummary(): string {
+	public getEnvelopeSummary(): string {
 		if (this.playbackMode === 'cutoff') {
 			return `${this.filterAttackMs} ms A · ${this.filterDecayMs} ms D · ${this.filterSustainPercent}% S · ${this.filterReleaseMs} ms R`
+		}
+		if (this.playbackMode === 'effects') {
+			return `Chorus ${this.chorusMixPercent}% · Delay ${this.delayTimeMs} ms`
 		}
 		if (this.playbackMode === 'pluck') {
 			return 'Fast pluck decay · damped filter'
@@ -519,123 +606,6 @@ export class App extends LitElement {
 			</label>
 		`
 	}
-
-	@Spec('Renders one labeled filter slider row for the cutoff playback mode settings panel.')
-	private renderFilterSettingSlider(
-		inputId: string,
-		label: string,
-		name: string,
-		value: number,
-		min: number,
-		max: number,
-		step: number,
-		valueSuffix: string
-	): TemplateResult {
-		return html`
-			<label class="setting-control" for=${inputId}>
-				<span class="setting-label-row">
-					<span class="status-label">${label}</span>
-					<span class="setting-value">${value}${valueSuffix}</span>
-				</span>
-				<input id=${inputId} class="settings-slider" type="range" name=${name} min=${String(min)} max=${String(max)} step=${String(step)} .value=${String(value)} @input=${this.onFilterSettingChange} />
-			</label>
-		`
-	}
-
-	@Spec('Renders the right-side playback settings panel so cutoff controls appear in the formerly empty area beside the main panel.')
-	private renderSoundDesignPanel(): TemplateResult {
-		if (this.playbackMode === 'cutoff') {
-			return html`
-				<section class="sound-design-card" aria-label="Playback settings panel">
-					<div class="sound-design-header">
-						<div class="status-label">Playback settings</div>
-						<div id="playback-mode-value" class="plate-value">${this.getPlaybackModeLabel()}</div>
-					</div>
-					<div id="playback-settings-mode-copy" class="panel-copy">Filter ADSR + low-pass cutoff shaping for the active waveform.</div>
-					<div id="filter-envelope-summary" class="settings-summary">${this.getEnvelopeSummary()}</div>
-					<div id="filter-cutoff-summary" class="settings-summary">${this.filterBaseCutoffHz} Hz base · ${Math.max(this.filterPeakCutoffHz, this.filterBaseCutoffHz + 20)} Hz peak · Q ${this.filterResonance.toFixed(1)}</div>
-					<div class="settings-grid">
-						${this.renderFilterSettingSlider('filter-attack-slider', 'Attack', 'filter-attack-ms', this.filterAttackMs, 0, 1000, 5, ' ms')}
-						${this.renderFilterSettingSlider('filter-decay-slider', 'Decay', 'filter-decay-ms', this.filterDecayMs, 0, 2000, 5, ' ms')}
-						${this.renderFilterSettingSlider('filter-sustain-slider', 'Sustain', 'filter-sustain-percent', this.filterSustainPercent, 0, 100, 1, '%')}
-						${this.renderFilterSettingSlider('filter-release-slider', 'Release', 'filter-release-ms', this.filterReleaseMs, 10, 2500, 5, ' ms')}
-						${this.renderFilterSettingSlider('filter-base-cutoff-slider', 'Base cutoff', 'filter-base-cutoff-hz', this.filterBaseCutoffHz, 40, 4000, 10, ' Hz')}
-						${this.renderFilterSettingSlider('filter-peak-cutoff-slider', 'Peak cutoff', 'filter-peak-cutoff-hz', this.filterPeakCutoffHz, 80, 12000, 10, ' Hz')}
-						${this.renderFilterSettingSlider('filter-resonance-slider', 'Resonance', 'filter-resonance', this.filterResonance, 0.1, 18, 0.1, '')}
-					</div>
-				</section>
-			`
-		}
-
-		if (this.playbackMode === 'pluck') {
-			return html`
-				<section class="sound-design-card" aria-label="Playback settings panel">
-					<div class="sound-design-header">
-						<div class="status-label">Playback settings</div>
-						<div id="playback-mode-value" class="plate-value">${this.getPlaybackModeLabel()}</div>
-					</div>
-					<div id="playback-settings-mode-copy" class="panel-copy">Pluck mode uses a bright transient, quick damping, and a low-pass settle to approximate a string-like response.</div>
-					<div id="playback-settings-empty" class="settings-empty">No extra controls yet. This mode uses a fixed damped-pluck recipe for now.</div>
-				</section>
-			`
-		}
-
-		return html`
-			<section class="sound-design-card" aria-label="Playback settings panel">
-				<div class="sound-design-header">
-					<div class="status-label">Playback settings</div>
-					<div id="playback-mode-value" class="plate-value">${this.getPlaybackModeLabel()}</div>
-				</div>
-				<div id="playback-settings-mode-copy" class="panel-copy">Raw mode plays the current waveform directly with no extra shaping stage.</div>
-				<div id="playback-settings-empty" class="settings-empty">No extra settings are needed for raw playback.</div>
-			</section>
-		`
-	}
-
-	@Spec('Builds the synth status cards, uploaded image panel, and the new right-side playback settings panel used by the main application layout.')
-	private renderStatusUploadPanel(): TemplateResult {
-		return html`
-			<section class="status-upload-layout" aria-label="Synth status, uploaded image panel, and playback settings">
-				<section class="status-grid" aria-label="Keyboard synth status">
-					<div class="status-card"><div class="status-label">Waveform</div><div id="waveform-value" class="status-value">${this.waveformLabel}</div></div>
-					<div class="status-card"><div class="status-label">Envelope</div><div id="envelope-value" class="status-value">${this.getEnvelopeSummary()}</div></div>
-					<div class="status-card"><div class="status-label">Voice mode</div><div id="voice-mode-value" class="status-value">${this.isMonophonic ? 'Monophonic' : 'Polyphonic'}</div></div>
-					<div class="status-card"><div class="status-label">Sounding voices</div><div id="sounding-voices-value" class="status-value">${this.soundingVoiceCount}</div></div>
-					<div class="status-card"><div class="status-label">Active key</div><div id="active-key-value" class="status-value">${this.activeKeyLabel}</div></div>
-					<div class="status-card"><div class="status-label">Active note</div><div id="active-note-value" class="status-value">${this.activeNoteLabel}</div></div>
-					<div class="status-card"><div class="status-label">Pitch</div><div id="pitch-value" class="status-value">${this.pitchLabel}</div></div>
-					<div class="status-card"><div class="status-label">Note state</div><div id="note-state-value" class="status-value">${this.noteStateLabel}</div></div>
-					<div class="status-card"><div class="status-label">Trigger count</div><div id="trigger-count-value" class="status-value">${this.triggerCount}</div></div>
-				</section>
-				<section class="upload-card" aria-label="Image upload panel">
-					<div class="status-label">Reference image</div>
-					<label class="upload-button" for="image-upload-input">Upload image</label>
-					<input id="image-upload-input" class="upload-input" type="file" accept="image/*" @change=${this.onImageSelection} />
-					<div class="plate-value" id="uploaded-image-name">${this.uploadedImageName}</div>
-					<div class="upload-controls">
-						<div class="status-label">Waveform row select</div>
-						<input id="waveform-row-slider" class="row-slider" type="range" min="0" max=${Math.max(this.availableRowCount - 1, 0)} .value=${String(this.selectedRowIndex)} ?disabled=${this.availableRowCount <= 1} @input=${this.onRowSelectionChange} />
-						<div id="waveform-row-value" class="plate-value">${this.availableRowCount === 0 ? 'No rows loaded' : `Row ${this.selectedRowIndex + 1} of ${this.availableRowCount}`}</div>
-					</div>
-					<uploaded-image-preview id="uploaded-image-preview" .imageUrl=${this.uploadedImageUrl} .imageName=${this.uploadedImageName} .selectedRowIndex=${this.selectedRowIndex} .rowCount=${this.availableRowCount} @rendered-image-width-change=${this.onUploadedImageWidthChange}></uploaded-image-preview>
-					<div class="waveform-preview-panel">
-						<div class="status-label">Selected waveform</div>
-						<image-waveform-preview id="selected-waveform-preview" .samples=${this.createWaveformPreviewSamples(this.imageWaveformRows[this.selectedRowIndex]?.samples ?? [])} .seamRatios=${this.createWaveformPreviewSeamRatios(this.imageWaveformRows[this.selectedRowIndex]?.samples ?? [])} previewLabel=${`Selected waveform preview · ${this.waveformCrossfadePercent}% loop crossfade`} .rowIndex=${this.availableRowCount === 0 ? -1 : this.selectedRowIndex} .rowCount=${this.availableRowCount}></image-waveform-preview>
-						<div class="preview-controls">
-							<div class="status-label">Loop crossfade</div>
-							<input id="waveform-crossfade-slider" class="row-slider" type="range" min="0" max="50" step="1" .value=${String(this.waveformCrossfadePercent)} @input=${this.onWaveformCrossfadeChange} />
-							<div id="waveform-crossfade-value" class="plate-value">${this.waveformCrossfadePercent}% seam overlap</div>
-						</div>
-					</div>
-					<div class="selected-image-cycle-strip" style=${this.uploadedPreviewWidthPx > 0 ? `width: ${this.uploadedPreviewWidthPx}px;` : 'width: 100%;'}>
-						<image-waveform-preview id="selected-image-cycle-preview" class="image-cycle-preview-plain" .samples=${this.imageWaveformRows[this.selectedRowIndex]?.samples ?? []} .seamRatios=${[]} previewLabel=${''} .cycleCount=${1} .rowIndex=${-1} .rowCount=${0}></image-waveform-preview>
-					</div>
-				</section>
-				${this.renderSoundDesignPanel()}
-			</section>
-		`
-	}
-
 	@Spec('Renders the QWERTY keyboard guide, compact monophonic toggle, playback-mode selector, visible synth status cards, uploaded image waveform panel, and right-side sound settings panel.')
 	render(): TemplateResult {
 		return html`
@@ -686,11 +656,12 @@ export class App extends LitElement {
 							${this.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
 							${this.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
 							${this.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
+							${this.renderPlaybackModeOption('effects', 'Effects', 'Chorus + delay')}
 						</div>
 					</section>
 				</section>
 
-				${this.renderStatusUploadPanel()}
+				${this.appSoundDesignPanel.renderStatusUploadPanel()}
 				<section class="detail" id="note-detail-text">${this.noteDetailText}</section>
 				<section class="detail" id="waveform-detail-text">${this.waveformDetailText}</section>
 			</main>

@@ -1,5 +1,6 @@
 import { Spec } from '@shared/lll.lll'
 import { AdsrEnvelope } from './synth/AdsrEnvelope.lll'
+import { EffectsSettings } from './synth/EffectsSettings.lll'
 import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
 
@@ -15,12 +16,15 @@ export class PrimitiveSynth {
 	private readonly adsrEnvelope = new AdsrEnvelope()
 	private audioContext: AudioContext | null = null
 	private readonly activeVoicesByFrequencyKey: Map<string, { frequencyHz: number, oscillator: OscillatorNode, gainNode: GainNode, filterNode: BiquadFilterNode | null, playbackMode: SynthPlaybackMode }> = new Map()
+	private readonly chorusInputNodeByAudioContext: WeakMap<AudioContext, GainNode> = new WeakMap()
+	private readonly delayInputNodeByAudioContext: WeakMap<AudioContext, GainNode> = new WeakMap()
 	private pendingReadyTimeoutId: number | null = null
 	private requestVersion: number = 0
 	private isMonophonic: boolean
 	private waveformSamples: number[] | null = null
 	private playbackMode: SynthPlaybackMode
 	private filterEnvelopeSettings: FilterEnvelopeSettings
+	private effectsSettings: EffectsSettings
 
 	constructor(
 		options: {
@@ -30,6 +34,7 @@ export class PrimitiveSynth {
 			monophonic?: boolean
 			playbackMode?: SynthPlaybackMode
 			filterEnvelopeSettings?: FilterEnvelopeSettings
+			effectsSettings?: EffectsSettings
 			createAudioContext?: () => AudioContext | null
 			onStateChange?: (state: 'ready' | 'playing' | 'releasing' | 'unsupported') => void
 			scheduleTimeout?: (callback: () => void, delayMs: number) => number
@@ -43,6 +48,7 @@ export class PrimitiveSynth {
 		this.isMonophonic = options.monophonic ?? false
 		this.playbackMode = options.playbackMode ?? 'raw'
 		this.filterEnvelopeSettings = this.normalizeFilterEnvelopeSettings(options.filterEnvelopeSettings ?? this.createDefaultFilterEnvelopeSettings())
+		this.effectsSettings = this.normalizeEffectsSettings(options.effectsSettings ?? this.createDefaultEffectsSettings())
 		this.createAudioContext = options.createAudioContext ?? (() => this.createBrowserAudioContext())
 		this.onStateChange = options.onStateChange ?? null
 		this.scheduleTimeout = options.scheduleTimeout ?? ((callback, delayMs) => globalThis.setTimeout(callback, delayMs))
@@ -63,6 +69,12 @@ export class PrimitiveSynth {
 	setFilterEnvelopeSettings(filterEnvelopeSettings: FilterEnvelopeSettings) {
 		this.filterEnvelopeSettings = this.normalizeFilterEnvelopeSettings(filterEnvelopeSettings)
 		this.refreshActiveVoiceFilters()
+	}
+
+	@Spec('Replaces the active chorus and delay settings used by the effects playback mode and refreshes the shared effect buses.')
+	setEffectsSettings(effectsSettings: EffectsSettings) {
+		this.effectsSettings = this.normalizeEffectsSettings(effectsSettings)
+		this.refreshEffectsRouting()
 	}
 
 	@Spec('Replaces the default sine oscillator shape with one uploaded image row waveform or clears back to the built-in raw oscillator shape when null is provided.')
@@ -167,6 +179,30 @@ export class PrimitiveSynth {
 		}
 	}
 
+	@Spec('Returns the default chorus and delay settings used when callers do not provide any explicit effects values.')
+	private createDefaultEffectsSettings(): EffectsSettings {
+		return {
+			chorusMix: 0.22,
+			chorusFeedback: 0.08,
+			chorusDepthMs: 8,
+			delayMix: 0.18,
+			delayFeedback: 0.24,
+			delayTimeMs: 280
+		}
+	}
+
+	@Spec('Clamps one set of chorus and delay settings into stable ranges before the synth uses them for routing.')
+	private normalizeEffectsSettings(effectsSettings: EffectsSettings): EffectsSettings {
+		return {
+			chorusMix: Math.max(0, Math.min(0.8, effectsSettings.chorusMix)),
+			chorusFeedback: Math.max(0, Math.min(0.75, effectsSettings.chorusFeedback)),
+			chorusDepthMs: Math.max(1, Math.min(30, effectsSettings.chorusDepthMs)),
+			delayMix: Math.max(0, Math.min(0.8, effectsSettings.delayMix)),
+			delayFeedback: Math.max(0, Math.min(0.85, effectsSettings.delayFeedback)),
+			delayTimeMs: Math.max(40, Math.min(900, effectsSettings.delayTimeMs))
+		}
+	}
+
 	@Spec('Applies the requested target note set by retiring stale voices and starting any missing ones with the currently selected playback mode.')
 	private applyTargetFrequencies(targetFrequencies: number[], audioContext: AudioContext) {
 		const targetFrequencyKeys = new Set(targetFrequencies.map((frequencyHz) => this.formatFrequencyKey(frequencyHz)))
@@ -193,7 +229,7 @@ export class PrimitiveSynth {
 			this.scheduleGainEnvelope(voiceNodes.gainNode, audioContext.currentTime)
 			this.scheduleFilterEnvelope(voiceNodes.filterNode, frequencyHz, audioContext.currentTime)
 			oscillator.connect(voiceNodes.inputNode)
-			voiceNodes.outputNode.connect(audioContext.destination)
+			this.connectVoiceOutput(voiceNodes.outputNode, audioContext)
 			this.trackVoiceEnd(frequencyKey, oscillator, voiceNodes.gainNode, voiceNodes.filterNode)
 			oscillator.start(audioContext.currentTime)
 			this.activeVoicesByFrequencyKey.set(frequencyKey, {
@@ -211,7 +247,7 @@ export class PrimitiveSynth {
 	@Spec('Builds the audio-node chain for one voice according to the active playback mode.')
 	private createVoiceNodes(audioContext: AudioContext, frequencyHz: number): { gainNode: GainNode, filterNode: BiquadFilterNode | null, inputNode: AudioNode, outputNode: AudioNode } {
 		const gainNode = audioContext.createGain()
-		if (this.playbackMode === 'raw') {
+		if (this.playbackMode === 'raw' || this.playbackMode === 'effects') {
 			return {
 				gainNode,
 				filterNode: null,
@@ -373,7 +409,91 @@ export class PrimitiveSynth {
 		if (voice.playbackMode === 'pluck') {
 			return Math.max(this.releaseDurationSeconds, 0.18)
 		}
+		if (voice.playbackMode === 'effects') {
+			return Math.max(this.releaseDurationSeconds, 0.24)
+		}
 		return this.releaseDurationSeconds
+	}
+
+	@Spec('Routes one voice output either directly to the destination or through the shared chorus and delay buses for effects mode.')
+	private connectVoiceOutput(outputNode: AudioNode, audioContext: AudioContext) {
+		if (this.playbackMode !== 'effects') {
+			outputNode.connect(audioContext.destination)
+			return
+		}
+		const chorusInputNode = this.ensureChorusInputNode(audioContext)
+		const delayInputNode = this.ensureDelayInputNode(audioContext)
+		outputNode.connect(audioContext.destination)
+		outputNode.connect(chorusInputNode)
+		outputNode.connect(delayInputNode)
+	}
+
+	@Spec('Ensures one shared chorus send bus exists for the audio context and applies the latest chorus routing values.')
+	private ensureChorusInputNode(audioContext: AudioContext): GainNode {
+		const existingNode = this.chorusInputNodeByAudioContext.get(audioContext)
+		if (existingNode !== undefined) {
+			return existingNode
+		}
+		const sendNode = audioContext.createGain()
+		const wetGainNode = audioContext.createGain()
+		const feedbackGainNode = audioContext.createGain()
+		const delayNode = audioContext.createDelay(0.05)
+		const lfoOscillator = audioContext.createOscillator()
+		const lfoDepthNode = audioContext.createGain()
+		sendNode.gain.value = this.effectsSettings.chorusMix
+		wetGainNode.gain.value = 0.7
+		feedbackGainNode.gain.value = this.effectsSettings.chorusFeedback
+		delayNode.delayTime.value = this.effectsSettings.chorusDepthMs / 1000
+		lfoOscillator.frequency.value = 0.28
+		lfoDepthNode.gain.value = this.effectsSettings.chorusDepthMs / 2000
+		sendNode.connect(delayNode)
+		delayNode.connect(wetGainNode)
+		wetGainNode.connect(audioContext.destination)
+		delayNode.connect(feedbackGainNode)
+		feedbackGainNode.connect(sendNode)
+		lfoOscillator.connect(lfoDepthNode)
+		lfoDepthNode.connect(delayNode.delayTime)
+		lfoOscillator.start(audioContext.currentTime)
+		this.chorusInputNodeByAudioContext.set(audioContext, sendNode)
+		return sendNode
+	}
+
+	@Spec('Ensures one shared delay send bus exists for the audio context and applies the latest delay routing values.')
+	private ensureDelayInputNode(audioContext: AudioContext): GainNode {
+		const existingNode = this.delayInputNodeByAudioContext.get(audioContext)
+		if (existingNode !== undefined) {
+			return existingNode
+		}
+		const sendNode = audioContext.createGain()
+		const wetGainNode = audioContext.createGain()
+		const feedbackGainNode = audioContext.createGain()
+		const delayNode = audioContext.createDelay(1)
+		sendNode.gain.value = this.effectsSettings.delayMix
+		wetGainNode.gain.value = 0.65
+		feedbackGainNode.gain.value = this.effectsSettings.delayFeedback
+		delayNode.delayTime.value = this.effectsSettings.delayTimeMs / 1000
+		sendNode.connect(delayNode)
+		delayNode.connect(wetGainNode)
+		wetGainNode.connect(audioContext.destination)
+		delayNode.connect(feedbackGainNode)
+		feedbackGainNode.connect(delayNode)
+		this.delayInputNodeByAudioContext.set(audioContext, sendNode)
+		return sendNode
+	}
+
+	@Spec('Refreshes the shared chorus and delay buses with the latest settings after the visible effects sliders change.')
+	private refreshEffectsRouting() {
+		if (this.audioContext === null) {
+			return
+		}
+		const chorusInputNode = this.chorusInputNodeByAudioContext.get(this.audioContext)
+		if (chorusInputNode !== undefined) {
+			chorusInputNode.gain.value = this.effectsSettings.chorusMix
+		}
+		const delayInputNode = this.delayInputNodeByAudioContext.get(this.audioContext)
+		if (delayInputNode !== undefined) {
+			delayInputNode.gain.value = this.effectsSettings.delayMix
+		}
 	}
 
 	@Spec('Applies a short fade and stop time to a voice so repeated triggers do not click or hang while also releasing any active filter sweep.')
