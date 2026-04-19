@@ -1,5 +1,5 @@
 import { LitElement, css, html, type TemplateResult } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
+import { customElement, property, query } from 'lit/decorators.js'
 import { Spec } from '@shared/lll.lll'
 
 @Spec('Shows the uploaded reference image with a visible horizontal marker for the currently selected waveform row.')
@@ -66,12 +66,30 @@ export class UploadedImagePreview extends LitElement {
 	@property({ type: Number })
 	rowCount: number = 0
 
+	@query('#uploaded-image-element')
+	private imageElement?: HTMLImageElement
+
+	@Spec('Dispatches the current rendered image width so sibling previews can match the visible uploaded image size.')
+	private notifyRenderedImageWidth() {
+		const renderedWidth = this.imageElement?.clientWidth ?? 0
+		this.dispatchEvent(new CustomEvent<number>('rendered-image-width-change', {
+			detail: renderedWidth,
+			bubbles: true,
+			composed: true
+		}))
+	}
+
 	@Spec('Calculates the selected row marker offset so the visible line sits at the center of the active image row.')
 	private getSelectedRowLineOffsetPercent(): string {
 		if (this.rowCount <= 0) {
 			return '50%'
 		}
 		return `${((this.selectedRowIndex + 0.5) / this.rowCount) * 100}%`
+	}
+
+	@Spec('Refreshes the reported rendered image width after updates so sibling previews can stay aligned with the visible image size.')
+	protected updated(): void {
+		this.notifyRenderedImageWidth()
 	}
 
 	@Spec('Renders either the uploaded image with its selected-row line or an empty-state message when nothing is loaded.')
@@ -81,7 +99,7 @@ export class UploadedImagePreview extends LitElement {
 		}
 		return html`
 			<div class="preview-figure">
-				<img id="uploaded-image-element" src=${this.imageUrl} alt=${`Uploaded preview for ${this.imageName}`} />
+				<img id="uploaded-image-element" src=${this.imageUrl} alt=${`Uploaded preview for ${this.imageName}`} @load=${this.notifyRenderedImageWidth} />
 				<div
 					id="selected-row-line"
 					class="selected-row-line"

@@ -36,6 +36,25 @@ export class ImageWaveformPreview extends LitElement {
 			border-radius: 12px;
 			background: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.01));
 		}
+
+		:host(.image-cycle-preview-plain) {
+			gap: 0;
+		}
+
+		:host(.image-cycle-preview-plain) .preview-frame {
+			padding: 0;
+			gap: 0;
+			border: 1px solid rgba(255, 255, 255, 0.24);
+			border-radius: 0;
+			background: #000000;
+			box-shadow: none;
+		}
+
+		:host(.image-cycle-preview-plain) canvas {
+			height: 54px;
+			border-radius: 0;
+			background: #000000;
+		}
 	`
 
 	@property({ attribute: false })
@@ -46,6 +65,9 @@ export class ImageWaveformPreview extends LitElement {
 
 	@property({ type: String })
 	previewLabel: string = 'Waveform preview unavailable'
+
+	@property({ type: Number })
+	cycleCount: number = 3
 
 	@property({ type: Number })
 	rowIndex: number = -1
@@ -73,7 +95,7 @@ export class ImageWaveformPreview extends LitElement {
 		}
 
 		const width = 960
-		const height = 146
+		const height = this.cycleCount === 1 ? 56 : 146
 		canvas.width = width
 		canvas.height = height
 		context.clearRect(0, 0, width, height)
@@ -132,23 +154,29 @@ export class ImageWaveformPreview extends LitElement {
 		context.shadowBlur = 0
 	}
 
-	@Spec('Returns the waveform samples that should be drawn, either as a supplied overlap-shortened preview or as a plain three-cycle fallback.')
+	@Spec('Returns the waveform samples that should be drawn, either as a supplied overlap-shortened preview or as repeated cycles sized for the requested display.')
 	private getVisibleSamples(): number[] {
 		if (this.samples.length === 0) {
 			return []
 		}
+		if (this.cycleCount === 1) {
+			return [...this.samples]
+		}
 		if (this.seamRatios.length === 2) {
 			return [...this.samples]
 		}
-		return [...this.samples, ...this.samples, ...this.samples]
+		return Array.from({ length: this.cycleCount }, () => this.samples).flat()
 	}
 
-	@Spec('Returns the two visible seam positions, using supplied overlap-shortened joins when available.')
+	@Spec('Returns the visible seam positions, using supplied overlap-shortened joins when available and hiding them for a single-cycle display.')
 	private getVisibleSeamRatios(): number[] {
+		if (this.cycleCount === 1) {
+			return []
+		}
 		if (this.seamRatios.length === 2) {
 			return this.seamRatios
 		}
-		return [1 / 3, 2 / 3]
+		return [1 / this.cycleCount, (this.cycleCount - 1) / this.cycleCount]
 	}
 
 	@Spec('Renders the waveform canvas and accessible metadata for the currently selected image row.')
@@ -158,7 +186,7 @@ export class ImageWaveformPreview extends LitElement {
 			: `${this.previewLabel} · Row ${this.rowIndex + 1} of ${this.rowCount}`
 		return html`
 			<div class="preview-frame">
-				<div id="waveform-preview-meta" class="preview-meta">${visibleLabel}</div>
+				${visibleLabel === '' ? null : html`<div id="waveform-preview-meta" class="preview-meta">${visibleLabel}</div>`}
 				<canvas
 					id="waveform-preview-canvas"
 					role="img"

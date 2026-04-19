@@ -272,6 +272,15 @@ export class AppStyles {
 			display: grid;
 			gap: 12px;
 			margin-top: 4px;
+			order: 2;
+		}
+
+		.selected-image-cycle-strip {
+			justify-self: center;
+			max-width: 100%;
+			margin-top: -2px;
+			margin-bottom: 6px;
+			order: 1;
 		}
 
 		.switch-card {
