@@ -23,10 +23,12 @@ export class AppTest {
 			const voiceMode = this.readText(app, '#voice-mode-value')
 			const soundingVoices = this.readText(app, '#sounding-voices-value')
 			const activeKey = this.readText(app, '#active-key-value')
+			const playbackMode = this.readText(app, '#playback-mode-value')
 
 			assert(voiceMode === 'Polyphonic', 'Expected the app to remain in polyphonic mode by default')
 			assert(soundingVoices === '2', 'Expected two sounding voices to be visible')
 			assert(activeKey === 'W', 'Expected the newest held key to become active')
+			assert(playbackMode === 'Cutoff', 'Expected cutoff playback mode to be selected by default')
 			return { voiceMode, soundingVoices, activeKey }
 		} finally {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
@@ -101,8 +103,8 @@ export class AppTest {
 
 			assert(playbackMode === 'Cutoff', 'Expected the playback settings panel label to switch to Cutoff')
 			assert(modeCopy.includes('Filter ADSR'), 'Expected the cutoff panel copy to mention filter ADSR shaping')
-			assert(summary.includes('A') && summary.includes('R'), 'Expected the filter envelope summary to show ADSR values')
-			assert(resonanceValue === '6', 'Expected the resonance slider to start from the default value of 6')
+			assert(summary.includes('325 ms D') && summary.includes('36% S'), 'Expected the filter envelope summary to show the new default cutoff settings')
+			assert(resonanceValue === '13', 'Expected the resonance slider to start from the default value of 13')
 			return { playbackMode, modeCopy, summary, resonanceValue }
 		} finally {
 			if (originalAudioContext === undefined) {

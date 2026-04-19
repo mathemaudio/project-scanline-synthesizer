@@ -21,7 +21,7 @@ export class App extends LitElement {
 	private noteStateLabel: string = 'Ready to play'
 
 	@state()
-	private noteDetailText: string = 'Polyphonic mode is armed. Hold Q through P or Z through M to stack notes, and release them to let every sounding voice fade cleanly.'
+	private noteDetailText: string = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
 
 	@state()
 	private activeNoteLabel: string = '—'
@@ -60,16 +60,16 @@ export class App extends LitElement {
 	private availableRowCount: number = 0
 
 	@state()
-	private playbackMode: SynthPlaybackMode = 'raw'
+	private playbackMode: SynthPlaybackMode = 'cutoff'
 
 	@state()
 	private filterAttackMs: number = 40
 
 	@state()
-	private filterDecayMs: number = 180
+	private filterDecayMs: number = 325
 
 	@state()
-	private filterSustainPercent: number = 42
+	private filterSustainPercent: number = 36
 
 	@state()
 	private filterReleaseMs: number = 220
@@ -78,25 +78,25 @@ export class App extends LitElement {
 	private filterBaseCutoffHz: number = 480
 
 	@state()
-	private filterPeakCutoffHz: number = 2800
+	private filterPeakCutoffHz: number = 2600
 
 	@state()
-	private filterResonance: number = 6
+	private filterResonance: number = 13
 
 	private imageWaveformRows: ImageWaveformRow[] = []
 	private readonly imageWaveformBank = new ImageWaveformBank()
 
 	private readonly synth = new PrimitiveSynth({
 		monophonic: false,
-		playbackMode: 'raw',
+		playbackMode: 'cutoff',
 		filterEnvelopeSettings: {
 			attackSeconds: 0.04,
-			decaySeconds: 0.18,
-			sustainLevel: 0.42,
+			decaySeconds: 0.325,
+			sustainLevel: 0.36,
 			releaseSeconds: 0.22,
 			baseCutoffHz: 480,
-			peakCutoffHz: 2800,
-			resonance: 6
+			peakCutoffHz: 2600,
+			resonance: 13
 		},
 		onStateChange: (state) => this.onSynthStateChange(state)
 	})
