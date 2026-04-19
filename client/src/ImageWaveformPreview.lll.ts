@@ -2,7 +2,7 @@ import { LitElement, css, html, type TemplateResult } from 'lit'
 import { customElement, property, query } from 'lit/decorators.js'
 import { Spec } from '@shared/lll.lll'
 
-@Spec('Draws a visible canvas preview of the currently selected image-derived waveform row.')
+@Spec('Draws a visible three-cycle preview of the currently selected image-derived waveform row.')
 @customElement('image-waveform-preview')
 export class ImageWaveformPreview extends LitElement {
 	static styles = css`
@@ -32,7 +32,7 @@ export class ImageWaveformPreview extends LitElement {
 		canvas {
 			display: block;
 			width: 100%;
-			height: 110px;
+			height: 146px;
 			border-radius: 12px;
 			background: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.01));
 		}
@@ -40,6 +40,9 @@ export class ImageWaveformPreview extends LitElement {
 
 	@property({ attribute: false })
 	samples: number[] = []
+
+	@property({ attribute: false })
+	seamRatios: number[] = []
 
 	@property({ type: String })
 	previewLabel: string = 'Waveform preview unavailable'
@@ -58,7 +61,7 @@ export class ImageWaveformPreview extends LitElement {
 		this.drawWaveform()
 	}
 
-	@Spec('Draws the selected waveform row as a centered oscilloscope-like line with a subtle baseline.')
+	@Spec('Draws the visible waveform preview so the two loop seams can be inspected at their true overlap-shortened positions.')
 	private drawWaveform() {
 		const canvas = this.canvasElement
 		if (canvas === undefined) {
@@ -69,8 +72,8 @@ export class ImageWaveformPreview extends LitElement {
 			return
 		}
 
-		const width = 640
-		const height = 110
+		const width = 960
+		const height = 146
 		canvas.width = width
 		canvas.height = height
 		context.clearRect(0, 0, width, height)
@@ -87,6 +90,16 @@ export class ImageWaveformPreview extends LitElement {
 		context.moveTo(0, height / 2)
 		context.lineTo(width, height / 2)
 		context.stroke()
+		context.strokeStyle = 'rgba(255, 235, 205, 0.12)'
+		context.setLineDash([8, 10])
+		context.beginPath()
+		for (const seamRatio of this.getVisibleSeamRatios()) {
+			const seamX = width * seamRatio
+			context.moveTo(seamX, 10)
+			context.lineTo(seamX, height - 10)
+		}
+		context.stroke()
+		context.setLineDash([])
 
 		if (this.samples.length === 0) {
 			context.fillStyle = 'rgba(245, 223, 176, 0.62)'
@@ -102,9 +115,10 @@ export class ImageWaveformPreview extends LitElement {
 		context.lineJoin = 'round'
 		context.lineCap = 'round'
 		context.beginPath()
-		for (let sampleIndex = 0; sampleIndex < this.samples.length; sampleIndex += 1) {
-			const sample = this.samples[sampleIndex] ?? 0
-			const x = this.samples.length === 1 ? width / 2 : (sampleIndex / (this.samples.length - 1)) * width
+		const visibleSamples = this.getVisibleSamples()
+		for (let sampleIndex = 0; sampleIndex < visibleSamples.length; sampleIndex += 1) {
+			const sample = visibleSamples[sampleIndex] ?? 0
+			const x = visibleSamples.length === 1 ? width / 2 : (sampleIndex / (visibleSamples.length - 1)) * width
 			const y = height / 2 - sample * (height * 0.34)
 			if (sampleIndex === 0) {
 				context.moveTo(x, y)
@@ -116,6 +130,25 @@ export class ImageWaveformPreview extends LitElement {
 		context.shadowBlur = 8
 		context.stroke()
 		context.shadowBlur = 0
+	}
+
+	@Spec('Returns the waveform samples that should be drawn, either as a supplied overlap-shortened preview or as a plain three-cycle fallback.')
+	private getVisibleSamples(): number[] {
+		if (this.samples.length === 0) {
+			return []
+		}
+		if (this.seamRatios.length === 2) {
+			return [...this.samples]
+		}
+		return [...this.samples, ...this.samples, ...this.samples]
+	}
+
+	@Spec('Returns the two visible seam positions, using supplied overlap-shortened joins when available.')
+	private getVisibleSeamRatios(): number[] {
+		if (this.seamRatios.length === 2) {
+			return this.seamRatios
+		}
+		return [1 / 3, 2 / 3]
 	}
 
 	@Spec('Renders the waveform canvas and accessible metadata for the currently selected image row.')

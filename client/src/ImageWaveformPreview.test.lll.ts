@@ -6,7 +6,7 @@ import { ImageWaveformPreview } from './ImageWaveformPreview.lll'
 export class ImageWaveformPreviewTest {
 	testType = 'behavioral'
 
-	@Scenario('rendering a selected waveform row shows row metadata and a drawable canvas')
+	@Scenario('rendering a selected waveform row shows three-cycle metadata and a drawable canvas')
 	static async showsSelectedWaveformMetadataAndCanvas(subjectFactory: SubjectFactory<ImageWaveformPreview>, scenario?: ScenarioParameter): Promise<{ previewMeta: string, canvasWidth: number, canvasHeight: number }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
@@ -25,8 +25,8 @@ export class ImageWaveformPreviewTest {
 			assert(canvas !== null && canvas !== undefined, 'Expected waveform preview canvas to render')
 			assert(previewMeta.includes('Selected waveform preview'), 'Expected preview metadata to include the provided preview label')
 			assert(previewMeta.includes('Row 2 of 4'), 'Expected preview metadata to include selected row details')
-			assert(canvas.width === 640, 'Expected waveform preview canvas width to be configured for drawing')
-			assert(canvas.height === 110, 'Expected waveform preview canvas height to be configured for drawing')
+			assert(canvas.width === 960, 'Expected waveform preview canvas width to be configured for three visible cycles')
+			assert(canvas.height === 146, 'Expected waveform preview canvas height to be configured for the taller three-cycle display')
 			return { previewMeta, canvasWidth: canvas.width, canvasHeight: canvas.height }
 		} finally {
 			HTMLCanvasElement.prototype.getContext = originalGetContext
@@ -75,6 +75,7 @@ export class ImageWaveformPreviewTest {
 				lineTo: () => undefined,
 				stroke: () => undefined,
 				fillText: () => undefined,
+				setLineDash: () => undefined,
 				fillStyle: '',
 				strokeStyle: '',
 				lineWidth: 0,

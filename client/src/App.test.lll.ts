@@ -103,7 +103,7 @@ export class AppTest {
 
 			assert(playbackMode === 'Cutoff', 'Expected the playback settings panel label to switch to Cutoff')
 			assert(modeCopy.includes('Filter ADSR'), 'Expected the cutoff panel copy to mention filter ADSR shaping')
-			assert(summary.includes('325 ms D') && summary.includes('36% S'), 'Expected the filter envelope summary to show the new default cutoff settings')
+			assert(summary.includes('725 ms D') && summary.includes('15% S'), 'Expected the filter envelope summary to show the default cutoff settings')
 			assert(resonanceValue === '13', 'Expected the resonance slider to start from the default value of 13')
 			return { playbackMode, modeCopy, summary, resonanceValue }
 		} finally {
@@ -232,6 +232,133 @@ export class AppTest {
 			assert(rowValue.includes('of 2'), 'Expected row selector to reveal two loaded rows from the canvas image')
 			assert(waveformDetail.includes('image loaded'), 'Expected waveform detail text to describe the loaded image dimensions')
 			return { uploadedImageName, waveform, rowValue, waveformDetail }
+		} finally {
+			this.restoreCanvasTestDouble()
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+			URL.createObjectURL = originalCreateObjectUrl
+			URL.revokeObjectURL = originalRevokeObjectUrl
+			if (originalImage === undefined) {
+				delete (globalThis as Record<string, unknown>)['Image']
+			} else {
+				(globalThis as Record<string, unknown>)['Image'] = originalImage
+			}
+			if (originalHTMLElement === undefined) {
+				delete (globalThis as Record<string, unknown>)['HTMLElement']
+			} else {
+				(globalThis as Record<string, unknown>)['HTMLElement'] = originalHTMLElement
+			}
+		}
+	}
+
+	@Scenario('loop crossfade defaults to zero percent and the waveform preview shows three cycles')
+	static async showsLoopCrossfadeControlAndThreeCyclePreview(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ crossfadeValue: string, previewMeta: string, canvasWidth: number, canvasHeight: number, waveformDetail: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+		const originalCreateObjectUrl = URL.createObjectURL
+		const originalRevokeObjectUrl = URL.revokeObjectURL
+		const originalImage = (globalThis as Record<string, unknown>)['Image']
+		const originalHTMLElement = (globalThis as Record<string, unknown>)['HTMLElement']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		URL.createObjectURL = ((_file: Blob | MediaSource) => this.behavioralPreviewImageUrl) as typeof URL.createObjectURL
+		URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL
+			; (globalThis as Record<string, unknown>)['Image'] = this.createBehavioralImageConstructor()
+			; (globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			this.installCanvasTestDouble()
+			const uploadInput = app.shadowRoot?.querySelector<HTMLInputElement>('#image-upload-input')
+			assert(uploadInput !== null && uploadInput !== undefined, 'Expected image upload input to exist')
+			Object.defineProperty(uploadInput, 'files', {
+				configurable: true,
+				value: [this.createBehavioralImageFile('cycles.svg')]
+			})
+			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Image row'), 'Expected an uploaded image row waveform to become active before inspecting the new preview controls')
+			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('0%'), 'Expected the new loop crossfade control to default to zero percent')
+
+			const crossfadeValue = this.readText(app, '#waveform-crossfade-value')
+			const previewMeta = this.readTextFromShadowHost(app, 'image-waveform-preview', '#waveform-preview-meta')
+			const previewCanvas = app.shadowRoot?.querySelector('image-waveform-preview')?.shadowRoot?.querySelector<HTMLCanvasElement>('#waveform-preview-canvas')
+			const waveformDetail = this.readText(app, '#waveform-detail-text')
+			assert(previewCanvas !== null && previewCanvas !== undefined, 'Expected the three-cycle waveform preview canvas to render after upload')
+			assert(crossfadeValue === '0% seam overlap', 'Expected the loop crossfade value label to default to zero percent')
+			assert(previewMeta.includes('0% loop crossfade'), 'Expected the preview metadata to mention the default loop crossfade amount')
+			assert(previewCanvas.width === 960, 'Expected the selected waveform preview to widen for three cycles')
+			assert(previewCanvas.height === 146, 'Expected the selected waveform preview to become taller for the new three-cycle display')
+			assert(waveformDetail.includes('Loop crossfade 0%'), 'Expected the waveform detail text to describe the default loop crossfade amount')
+			return { crossfadeValue, previewMeta, canvasWidth: previewCanvas.width, canvasHeight: previewCanvas.height, waveformDetail }
+		} finally {
+			this.restoreCanvasTestDouble()
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+			URL.createObjectURL = originalCreateObjectUrl
+			URL.revokeObjectURL = originalRevokeObjectUrl
+			if (originalImage === undefined) {
+				delete (globalThis as Record<string, unknown>)['Image']
+			} else {
+				(globalThis as Record<string, unknown>)['Image'] = originalImage
+			}
+			if (originalHTMLElement === undefined) {
+				delete (globalThis as Record<string, unknown>)['HTMLElement']
+			} else {
+				(globalThis as Record<string, unknown>)['HTMLElement'] = originalHTMLElement
+			}
+		}
+	}
+
+	@Scenario('moving the loop crossfade slider updates the visible preview seam amount')
+	static async updatesLoopCrossfadePreview(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ crossfadeValue: string, previewMeta: string, waveformDetail: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+		const originalCreateObjectUrl = URL.createObjectURL
+		const originalRevokeObjectUrl = URL.revokeObjectURL
+		const originalImage = (globalThis as Record<string, unknown>)['Image']
+		const originalHTMLElement = (globalThis as Record<string, unknown>)['HTMLElement']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		URL.createObjectURL = ((_file: Blob | MediaSource) => this.behavioralPreviewImageUrl) as typeof URL.createObjectURL
+		URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL
+			; (globalThis as Record<string, unknown>)['Image'] = this.createBehavioralImageConstructor()
+			; (globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			this.installCanvasTestDouble()
+			const uploadInput = app.shadowRoot?.querySelector<HTMLInputElement>('#image-upload-input')
+			assert(uploadInput !== null && uploadInput !== undefined, 'Expected image upload input to exist')
+			Object.defineProperty(uploadInput, 'files', {
+				configurable: true,
+				value: [this.createBehavioralImageFile('crossfade.svg')]
+			})
+			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Image row'), 'Expected an uploaded image row waveform to become active before moving the loop crossfade slider')
+			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('0%'), 'Expected the loop crossfade control to render before adjusting it')
+
+			const crossfadeSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-crossfade-slider')
+			assert(crossfadeSlider !== null && crossfadeSlider !== undefined, 'Expected loop crossfade slider to exist')
+			crossfadeSlider.value = '50'
+			crossfadeSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#waveform-crossfade-value') === '50% seam overlap', 'Expected the loop crossfade value label to update when the slider moves')
+
+			const crossfadeValue = this.readText(app, '#waveform-crossfade-value')
+			const previewMeta = this.readTextFromShadowHost(app, 'image-waveform-preview', '#waveform-preview-meta')
+			const waveformDetail = this.readText(app, '#waveform-detail-text')
+			assert(crossfadeValue === '50% seam overlap', 'Expected the loop crossfade value to reflect the slider movement')
+			assert(previewMeta.includes('50% loop crossfade'), 'Expected the selected waveform preview metadata to follow the loop crossfade slider')
+			assert(waveformDetail.includes('Loop crossfade 50%'), 'Expected the waveform detail text to reflect the stronger seam blend')
+			return { crossfadeValue, previewMeta, waveformDetail }
 		} finally {
 			this.restoreCanvasTestDouble()
 			if (originalAudioContext === undefined) {

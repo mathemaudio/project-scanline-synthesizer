@@ -32,7 +32,7 @@ export class AppStyles {
 		}
 
 		main {
-			width: min(1720px, 100%);
+			width: min(1860px, 100%);
 			display: grid;
 			gap: 24px;
 			padding: 28px;
@@ -199,16 +199,20 @@ export class AppStyles {
 		}
 
 		.status-upload-layout {
-			grid-template-columns: minmax(0, 0.95fr) minmax(320px, 0.95fr) minmax(320px, 1.05fr);
+			grid-template-columns: minmax(250px, 0.62fr) minmax(520px, 1.38fr) minmax(340px, 1fr);
 			align-items: start;
 		}
 
 		.status-grid {
-			grid-template-columns: repeat(2, minmax(180px, 1fr));
+			grid-template-columns: repeat(2, minmax(140px, 1fr));
+			gap: 12px;
 		}
 
 		.status-card {
-			min-height: 104px;
+			gap: 8px;
+			padding: 14px 16px;
+			min-height: 84px;
+			align-content: center;
 		}
 
 		.status-value,
@@ -218,7 +222,16 @@ export class AppStyles {
 		}
 
 		.upload-card {
-			gap: 16px;
+			gap: 18px;
+		}
+
+		.preview-controls {
+			display: grid;
+			gap: 10px;
+			padding: 12px 14px;
+			border-radius: 14px;
+			background: linear-gradient(180deg, rgba(207, 111, 54, 0.08), rgba(0, 0, 0, 0.08));
+			border: 1px solid rgba(221, 157, 90, 0.12);
 		}
 
 		.upload-controls {
@@ -257,7 +270,8 @@ export class AppStyles {
 
 		.waveform-preview-panel {
 			display: grid;
-			gap: 10px;
+			gap: 12px;
+			margin-top: 4px;
 		}
 
 		.switch-card {

@@ -6,6 +6,7 @@ import { ImageWaveformBank } from './ImageWaveformBank.lll'
 import { ImageWaveformRow } from './ImageWaveformRow.lll'
 import { KeyboardPitch } from './KeyboardPitch.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
+import { WaveformCycleCrossfader } from './synth/WaveformCycleCrossfader.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
 import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
@@ -66,10 +67,10 @@ export class App extends LitElement {
 	private filterAttackMs: number = 40
 
 	@state()
-	private filterDecayMs: number = 325
+	private filterDecayMs: number = 725
 
 	@state()
-	private filterSustainPercent: number = 36
+	private filterSustainPercent: number = 15
 
 	@state()
 	private filterReleaseMs: number = 220
@@ -83,16 +84,20 @@ export class App extends LitElement {
 	@state()
 	private filterResonance: number = 13
 
+	@state()
+	private waveformCrossfadePercent: number = 0
+
 	private imageWaveformRows: ImageWaveformRow[] = []
 	private readonly imageWaveformBank = new ImageWaveformBank()
+	private readonly waveformCycleCrossfader = new WaveformCycleCrossfader()
 
 	private readonly synth = new PrimitiveSynth({
 		monophonic: false,
 		playbackMode: 'cutoff',
 		filterEnvelopeSettings: {
 			attackSeconds: 0.04,
-			decaySeconds: 0.325,
-			sustainLevel: 0.36,
+			decaySeconds: 0.725,
+			sustainLevel: 0.15,
 			releaseSeconds: 0.22,
 			baseCutoffHz: 480,
 			peakCutoffHz: 2600,
@@ -382,7 +387,7 @@ export class App extends LitElement {
 			this.availableRowCount = waveformBank.rows.length
 			this.selectedRowIndex = this.chooseDefaultRowIndex(waveformBank.rows)
 			this.applySelectedWaveformRow()
-			this.waveformDetailText = `${waveformBank.width} × ${waveformBank.height} image loaded. Row ${this.selectedRowIndex + 1} is active for playback.`
+			this.waveformDetailText = `${waveformBank.width} × ${waveformBank.height} image loaded. Row ${this.selectedRowIndex + 1} is active for playback. Loop crossfade ${this.waveformCrossfadePercent}%.`
 		} catch (_error) {
 			this.imageWaveformRows = []
 			this.availableRowCount = 0
@@ -417,9 +422,10 @@ export class App extends LitElement {
 			this.waveformDetailText = 'No uploaded image row is active yet.'
 			return
 		}
-		this.synth.setWaveformSamples(selectedRow.samples)
+		const processedSamples = this.createCrossfadedWaveformSamples(selectedRow.samples)
+		this.synth.setWaveformSamples(processedSamples)
 		this.waveformLabel = `Image row ${this.selectedRowIndex + 1}`
-		this.waveformDetailText = `Uploaded waveform row ${this.selectedRowIndex + 1} of ${this.availableRowCount} is active. Average brightness ${(selectedRow.averageBrightness * 100).toFixed(1)}%.`
+		this.waveformDetailText = `Uploaded waveform row ${this.selectedRowIndex + 1} of ${this.availableRowCount} is active. Loop crossfade ${this.waveformCrossfadePercent}%. Average brightness ${(selectedRow.averageBrightness * 100).toFixed(1)}%.`
 	}
 
 	@Spec('Handles a visible row selection change so users can audition different uploaded image rows as stable waveforms.')
@@ -431,6 +437,32 @@ export class App extends LitElement {
 		}
 		this.selectedRowIndex = Math.max(0, Math.min(nextRowIndex, Math.max(this.availableRowCount - 1, 0)))
 		this.applySelectedWaveformRow()
+	}
+
+	@Spec('Applies one visible loop-crossfade slider change so neighboring waveform cycles blend more smoothly at their seam.')
+	private onWaveformCrossfadeChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null
+		const nextValue = Number(input?.value ?? '0')
+		if (Number.isFinite(nextValue) === false) {
+			return
+		}
+		this.waveformCrossfadePercent = Math.max(0, Math.min(50, nextValue))
+		this.applySelectedWaveformRow()
+	}
+
+	@Spec('Builds the steady-state loop period used for playback after the selected waveform seam is converted into a linear overlap-add join.')
+	private createCrossfadedWaveformSamples(samples: number[]): number[] {
+		return this.waveformCycleCrossfader.createCrossfadedCycleSamples(samples, this.waveformCrossfadePercent / 100)
+	}
+
+	@Spec('Builds the visible three-cycle preview samples so two neighboring overlaps shorten the total preview span.')
+	private createWaveformPreviewSamples(samples: number[]): number[] {
+		return this.waveformCycleCrossfader.createThreeCyclePreviewSamples(samples, this.waveformCrossfadePercent / 100)
+	}
+
+	@Spec('Returns the two seam markers for the visible preview after overlap-add shortening is applied between neighboring cycles.')
+	private createWaveformPreviewSeamRatios(samples: number[]): number[] {
+		return this.waveformCycleCrossfader.createThreeCyclePreviewSeamRatios(samples.length, this.waveformCrossfadePercent / 100)
 	}
 
 	@Spec('Releases the current uploaded image object URL when a new preview replaces it or the app unmounts.')
@@ -585,8 +617,13 @@ export class App extends LitElement {
 					</div>
 					<uploaded-image-preview id="uploaded-image-preview" .imageUrl=${this.uploadedImageUrl} .imageName=${this.uploadedImageName} .selectedRowIndex=${this.selectedRowIndex} .rowCount=${this.availableRowCount}></uploaded-image-preview>
 					<div class="waveform-preview-panel">
+						<div class="preview-controls">
+							<div class="status-label">Loop crossfade</div>
+							<input id="waveform-crossfade-slider" class="row-slider" type="range" min="0" max="50" step="1" .value=${String(this.waveformCrossfadePercent)} @input=${this.onWaveformCrossfadeChange} />
+							<div id="waveform-crossfade-value" class="plate-value">${this.waveformCrossfadePercent}% seam overlap</div>
+						</div>
 						<div class="status-label">Selected waveform</div>
-						<image-waveform-preview .samples=${[...(this.imageWaveformRows[this.selectedRowIndex]?.samples ?? [])]} previewLabel=${'Selected waveform preview'} .rowIndex=${this.availableRowCount === 0 ? -1 : this.selectedRowIndex} .rowCount=${this.availableRowCount}></image-waveform-preview>
+						<image-waveform-preview .samples=${this.createWaveformPreviewSamples(this.imageWaveformRows[this.selectedRowIndex]?.samples ?? [])} .seamRatios=${this.createWaveformPreviewSeamRatios(this.imageWaveformRows[this.selectedRowIndex]?.samples ?? [])} previewLabel=${`Selected waveform preview · ${this.waveformCrossfadePercent}% loop crossfade`} .rowIndex=${this.availableRowCount === 0 ? -1 : this.selectedRowIndex} .rowCount=${this.availableRowCount}></image-waveform-preview>
 					</div>
 				</section>
 				${this.renderSoundDesignPanel()}
