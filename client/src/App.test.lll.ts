@@ -78,6 +78,119 @@ export class AppTest {
 		}
 	}
 
+	@Scenario('switching playback mode shows cutoff settings in the right-side panel')
+	static async showsCutoffPlaybackSettingsPanel(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ playbackMode: string, modeCopy: string, summary: string, resonanceValue: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const cutoffRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-cutoff')
+			assert(cutoffRadio !== null && cutoffRadio !== undefined, 'Expected cutoff playback radio button to exist')
+			cutoffRadio.checked = true
+			cutoffRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Cutoff', 'Expected the right-side playback settings panel to show the Cutoff label')
+
+			const playbackMode = this.readText(app, '#playback-mode-value')
+			const modeCopy = this.readText(app, '#playback-settings-mode-copy')
+			const summary = this.readText(app, '#filter-envelope-summary')
+			const resonanceValue = this.readTextFromValueContainer(app, '#filter-resonance-slider')
+
+			assert(playbackMode === 'Cutoff', 'Expected the playback settings panel label to switch to Cutoff')
+			assert(modeCopy.includes('Filter ADSR'), 'Expected the cutoff panel copy to mention filter ADSR shaping')
+			assert(summary.includes('A') && summary.includes('R'), 'Expected the filter envelope summary to show ADSR values')
+			assert(resonanceValue === '6', 'Expected the resonance slider to start from the default value of 6')
+			return { playbackMode, modeCopy, summary, resonanceValue }
+		} finally {
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+		}
+	}
+
+	@Scenario('adjusting cutoff playback settings updates the visible summary values')
+	static async updatesCutoffPlaybackSummaryValues(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ envelopeSummary: string, cutoffSummary: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const cutoffRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-cutoff')
+			assert(cutoffRadio !== null && cutoffRadio !== undefined, 'Expected cutoff playback radio button to exist')
+			cutoffRadio.checked = true
+			cutoffRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Cutoff', 'Expected cutoff settings panel to render before changing a slider')
+
+			const attackSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#filter-attack-slider')
+			const peakCutoffSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#filter-peak-cutoff-slider')
+			assert(attackSlider !== null && attackSlider !== undefined, 'Expected attack slider to exist in cutoff mode')
+			assert(peakCutoffSlider !== null && peakCutoffSlider !== undefined, 'Expected peak cutoff slider to exist in cutoff mode')
+			attackSlider.value = '125'
+			attackSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			peakCutoffSlider.value = '4200'
+			peakCutoffSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			await app.updateComplete
+
+			const envelopeSummary = this.readText(app, '#filter-envelope-summary')
+			const cutoffSummary = this.readText(app, '#filter-cutoff-summary')
+			assert(envelopeSummary.includes('125 ms A'), 'Expected changing the attack slider to update the visible envelope summary')
+			assert(cutoffSummary.includes('4200 Hz peak'), 'Expected changing the peak cutoff slider to update the visible cutoff summary')
+			return { envelopeSummary, cutoffSummary }
+		} finally {
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+		}
+	}
+
+	@Scenario('switching playback modes keeps keyboard play active while the panel changes')
+	static async keepsKeyboardPlayableWhileSwitchingPlaybackModes(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ playbackMode: string, noteState: string, activeKey: string, panelCopy: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const pluckRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-pluck')
+			assert(pluckRadio !== null && pluckRadio !== undefined, 'Expected pluck playback radio button to exist')
+			pluckRadio.checked = true
+			pluckRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
+			await app.updateComplete
+
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Pluck', 'Expected the right-side playback settings panel to switch to Pluck')
+			await waitFor(() => this.readText(app, '#active-key-value') === 'Q', 'Expected keyboard play to remain active after switching playback mode')
+			const playbackMode = this.readText(app, '#playback-mode-value')
+			const noteState = this.readText(app, '#note-state-value')
+			const activeKey = this.readText(app, '#active-key-value')
+			const panelCopy = this.readText(app, '#playback-settings-mode-copy')
+
+			assert(playbackMode === 'Pluck', 'Expected playback mode label to show Pluck after selecting it')
+			assert(noteState === 'Playing', 'Expected note state to remain visibly Playing while the keyboard is used after a mode switch')
+			assert(activeKey === 'Q', 'Expected the active key to still reflect keyboard play after switching playback mode')
+			assert(panelCopy.includes('bright transient'), 'Expected the pluck panel copy to describe the string-like pluck behavior')
+			return { playbackMode, noteState, activeKey, panelCopy }
+		} finally {
+			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+		}
+	}
+
 	@Scenario('uploading an image activates an image row waveform and exposes the row selector')
 	static async showsImageRowWaveformControlsAfterUpload(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ uploadedImageName: string, waveform: string, rowValue: string, waveformDetail: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -259,6 +372,15 @@ export class AppTest {
 		return element.textContent?.trim() ?? ''
 	}
 
+	@Spec('Reads one input value from the app shadow DOM so behavioral scenarios can verify visible slider defaults.')
+	private static readTextFromValueContainer(app: App, selector: string): string {
+		const input = app.shadowRoot?.querySelector<HTMLInputElement>(selector)
+		if (input === null || input === undefined) {
+			throw new Error(`App input not found: ${selector}`)
+		}
+		return input.value
+	}
+
 	@Spec('Reads one inline style property from a nested shadow host element inside the app for visible behavioral UI checks.')
 	private static readStyleFromShadowHost(app: App, hostSelector: string, innerSelector: string, propertyName: 'top'): string {
 		const host = app.shadowRoot?.querySelector<HTMLElement>(hostSelector)
@@ -322,6 +444,34 @@ export class AppTest {
 			createPeriodicWave(): PeriodicWave {
 				return {} as PeriodicWave
 			}
+			createBiquadFilter(): BiquadFilterNode {
+				const frequency = {
+					value: 0,
+					cancelScheduledValues: () => { },
+					setValueAtTime(value: number) {
+						this.value = value
+						return this
+					},
+					linearRampToValueAtTime(value: number) {
+						this.value = value
+						return this
+					}
+				}
+				const quality = {
+					value: 0,
+					setValueAtTime(value: number) {
+						this.value = value
+						return this
+					}
+				}
+				return {
+					type: 'lowpass',
+					frequency: frequency as unknown as AudioParam,
+					Q: quality as unknown as AudioParam,
+					connect: () => { },
+					disconnect: () => { }
+				} as unknown as BiquadFilterNode
+			}
 			createOscillator(): OscillatorNode {
 				const oscillator = {
 					type: 'sine',
@@ -343,12 +493,15 @@ export class AppTest {
 					cancelScheduledValues: () => { },
 					setValueAtTime(value: number) {
 						this.value = value
+						return this
 					},
 					linearRampToValueAtTime(value: number) {
 						this.value = value
+						return this
 					},
 					exponentialRampToValueAtTime(value: number) {
 						this.value = value
+						return this
 					}
 				}
 				return {

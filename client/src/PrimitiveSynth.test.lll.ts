@@ -107,6 +107,61 @@ export class PrimitiveSynthTest {
 		return { activeVoiceCount, periodicWaveCallCount, oscillatorType }
 	}
 
+	@Scenario('cutoff playback mode builds a filtered voice and applies resonance settings')
+	static async usesFilteredVoiceInCutoffMode(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, filterCount: number, resonance: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			playbackMode: 'cutoff',
+			filterEnvelopeSettings: {
+				attackSeconds: 0.05,
+				decaySeconds: 0.2,
+				sustainLevel: 0.5,
+				releaseSeconds: 0.3,
+				baseCutoffHz: 500,
+				peakCutoffHz: 2400,
+				resonance: 8
+			},
+			createAudioContext: () => fakeAudioContext
+		})
+
+		const didStart = await synth.startNote(261.625565)
+		const activeVoiceCount = synth.getActiveVoiceCount()
+		const filterCount = (fakeAudioContext as unknown as { filterCount: number }).filterCount
+		const resonance = (fakeAudioContext as unknown as { lastFilterQ: number }).lastFilterQ
+
+		assert(didStart === true, 'Expected cutoff playback mode to start successfully with a fake audio context')
+		assert(activeVoiceCount === 1, 'Expected one active filtered voice after starting one note in cutoff mode')
+		assert(filterCount === 1, 'Expected cutoff playback mode to create one low-pass filter node')
+		assert(resonance === 8, 'Expected cutoff playback mode to apply the configured resonance to the filter')
+		return { didStart, activeVoiceCount, filterCount, resonance }
+	}
+
+	@Scenario('pluck playback mode rebuilds held notes while staying on one active voice')
+	static async rebuildsHeldVoiceForPluckMode(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ rebuilt: boolean, activeVoiceCount: number, filterCount: number, oscillatorType: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			playbackMode: 'raw',
+			createAudioContext: () => fakeAudioContext
+		})
+		await synth.startNote(261.625565)
+		synth.setPlaybackMode('pluck')
+
+		const rebuilt = await synth.rebuildNotes([261.625565])
+		const activeVoiceCount = synth.getActiveVoiceCount()
+		const filterCount = (fakeAudioContext as unknown as { filterCount: number }).filterCount
+		const oscillatorType = (fakeAudioContext as unknown as { lastOscillatorType: string }).lastOscillatorType
+
+		assert(rebuilt === true, 'Expected held notes to rebuild successfully after switching to pluck mode')
+		assert(activeVoiceCount === 1, 'Expected one active voice to remain after rebuilding a single held note')
+		assert(filterCount >= 1, 'Expected pluck mode to route the rebuilt note through a filter stage')
+		assert(oscillatorType === 'triangle', 'Expected pluck mode without uploaded samples to switch the built-in oscillator to triangle')
+		return { rebuilt, activeVoiceCount, filterCount, oscillatorType }
+	}
+
 	@Scenario('missing audio context reports unsupported without starting voices')
 	static async reportsUnsupportedWhenAudioContextIsMissing(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, states: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -149,17 +204,22 @@ export class PrimitiveSynthTest {
 			cancelScheduledValues: () => {},
 			setValueAtTime(value: number) {
 				this.value = value
+				return this
 			},
 			linearRampToValueAtTime(value: number) {
 				this.value = value
+				return this
 			},
 			exponentialRampToValueAtTime(value: number) {
 				this.value = value
+				return this
 			}
 		})
 		const fakeAudioContext = {
 			lastOscillatorType: 'sine',
 			periodicWaveCallCount: 0,
+			filterCount: 0,
+			lastFilterQ: 0,
 			state: 'running',
 			currentTime: 0,
 			destination: destination as AudioDestinationNode,
@@ -168,6 +228,25 @@ export class PrimitiveSynthTest {
 				fakeAudioContext.periodicWaveCallCount += 1
 				return {} as PeriodicWave
 			},
+			createBiquadFilter() {
+				fakeAudioContext.filterCount += 1
+				const frequency = createGainParam()
+				const quality = {
+					value: 0,
+					setValueAtTime(value: number) {
+						this.value = value
+						fakeAudioContext.lastFilterQ = value
+						return this
+					}
+				}
+				return {
+					type: 'lowpass',
+					frequency: frequency as unknown as AudioParam,
+					Q: quality as unknown as AudioParam,
+					connect: () => {},
+					disconnect: () => {}
+				} as unknown as BiquadFilterNode
+			},
 			createOscillator() {
 				const oscillator = {
 					type: 'sine',
@@ -175,7 +254,11 @@ export class PrimitiveSynthTest {
 					onended: null as (() => void) | null,
 					connect: () => {},
 					disconnect: () => {},
-					start: () => {},
+					start: () => {
+						if (fakeAudioContext.lastOscillatorType !== 'custom') {
+							fakeAudioContext.lastOscillatorType = oscillator.type
+						}
+					},
 					setPeriodicWave: () => {
 						fakeAudioContext.lastOscillatorType = 'custom'
 					},

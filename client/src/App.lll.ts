@@ -7,13 +7,16 @@ import { ImageWaveformRow } from './ImageWaveformRow.lll'
 import { KeyboardPitch } from './KeyboardPitch.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
+import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
+import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
 import './ImageWaveformPreview.lll'
 import './UploadedImagePreview.lll'
 
-@Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono and poly playback plus uploaded image row waveforms.')
+@Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono-poly voice behavior, three playback-shaping modes, and uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
 	static styles = AppStyles.styles
+
 	@state()
 	private noteStateLabel: string = 'Ready to play'
 
@@ -56,11 +59,45 @@ export class App extends LitElement {
 	@state()
 	private availableRowCount: number = 0
 
+	@state()
+	private playbackMode: SynthPlaybackMode = 'raw'
+
+	@state()
+	private filterAttackMs: number = 40
+
+	@state()
+	private filterDecayMs: number = 180
+
+	@state()
+	private filterSustainPercent: number = 42
+
+	@state()
+	private filterReleaseMs: number = 220
+
+	@state()
+	private filterBaseCutoffHz: number = 480
+
+	@state()
+	private filterPeakCutoffHz: number = 2800
+
+	@state()
+	private filterResonance: number = 6
+
 	private imageWaveformRows: ImageWaveformRow[] = []
 	private readonly imageWaveformBank = new ImageWaveformBank()
 
 	private readonly synth = new PrimitiveSynth({
 		monophonic: false,
+		playbackMode: 'raw',
+		filterEnvelopeSettings: {
+			attackSeconds: 0.04,
+			decaySeconds: 0.18,
+			sustainLevel: 0.42,
+			releaseSeconds: 0.22,
+			baseCutoffHz: 480,
+			peakCutoffHz: 2800,
+			resonance: 6
+		},
 		onStateChange: (state) => this.onSynthStateChange(state)
 	})
 
@@ -137,11 +174,89 @@ export class App extends LitElement {
 		this.refreshVisibleStatusText()
 	}
 
-	@Spec('Maps synth engine state changes to visible keyboard status text that reflects the current voice mode.')
+	@Spec('Switches the playback-shaping mode from the radio selector and rebuilds any held notes so the new routing is heard immediately.')
+	private async onPlaybackModeChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null
+		const nextPlaybackMode = input?.value
+		if (nextPlaybackMode !== 'raw' && nextPlaybackMode !== 'cutoff' && nextPlaybackMode !== 'pluck') {
+			return
+		}
+		this.playbackMode = nextPlaybackMode
+		this.synth.setPlaybackMode(this.playbackMode)
+		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
+		await this.rebuildHeldNotesForPlaybackChange()
+	}
+
+	@Spec('Applies one visible filter-setting slider change and forwards the updated cutoff envelope to the synth engine.')
+	private onFilterSettingChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null
+		const nextValue = Number(input?.value ?? '0')
+		if (Number.isFinite(nextValue) === false) {
+			return
+		}
+		const settingName = input?.name ?? ''
+		if (settingName === 'filter-attack-ms') {
+			this.filterAttackMs = nextValue
+		}
+		if (settingName === 'filter-decay-ms') {
+			this.filterDecayMs = nextValue
+		}
+		if (settingName === 'filter-sustain-percent') {
+			this.filterSustainPercent = nextValue
+		}
+		if (settingName === 'filter-release-ms') {
+			this.filterReleaseMs = nextValue
+		}
+		if (settingName === 'filter-base-cutoff-hz') {
+			this.filterBaseCutoffHz = nextValue
+		}
+		if (settingName === 'filter-peak-cutoff-hz') {
+			this.filterPeakCutoffHz = nextValue
+		}
+		if (settingName === 'filter-resonance') {
+			this.filterResonance = nextValue
+		}
+		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
+	}
+
+	@Spec('Rebuilds any held notes after a playback-mode change so the currently selected keys adopt the new voice routing immediately.')
+	private async rebuildHeldNotesForPlaybackChange() {
+		const heldPitches = this.qwertyKeyboard.getHeldPitches()
+		if (heldPitches.length === 0) {
+			this.refreshVisibleStatusText()
+			return
+		}
+		await this.synth.rebuildNotes(heldPitches.map((pitch) => pitch.frequencyHz))
+		this.updateSoundingVoiceCount(heldPitches)
+		this.refreshVisibleStatusText()
+	}
+
+	@Spec('Builds the current filter-envelope settings object from the visible slider state.')
+	private createFilterEnvelopeSettings(): FilterEnvelopeSettings {
+		return {
+			attackSeconds: this.filterAttackMs / 1000,
+			decaySeconds: this.filterDecayMs / 1000,
+			sustainLevel: this.filterSustainPercent / 100,
+			releaseSeconds: this.filterReleaseMs / 1000,
+			baseCutoffHz: this.filterBaseCutoffHz,
+			peakCutoffHz: Math.max(this.filterPeakCutoffHz, this.filterBaseCutoffHz + 20),
+			resonance: this.filterResonance
+		}
+	}
+
+	@Spec('Maps synth engine state changes to visible keyboard status text that reflects the current voice mode and playback-shaping mode.')
 	private onSynthStateChange(state: 'ready' | 'playing' | 'releasing' | 'unsupported') {
 		this.updateSoundingVoiceCount()
 		if (state === 'ready') {
 			this.noteStateLabel = 'Ready to play'
+			if (this.playbackMode === 'cutoff') {
+				this.noteDetailText = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
+				return
+			}
+			if (this.playbackMode === 'pluck') {
+				this.noteDetailText = 'Pluck mode is armed. New notes start bright, then damp quickly toward a softer string-like tone.'
+				return
+			}
 			this.noteDetailText = this.isMonophonic
 				? 'Monophonic mode is armed. Hold overlapping mapped keys to let the newest key take over while earlier keys stay available for fallback.'
 				: 'Polyphonic mode is armed. Hold several mapped keys together to stack a chord, and release them to let every sounding voice fade cleanly.'
@@ -150,23 +265,45 @@ export class App extends LitElement {
 
 		if (state === 'playing') {
 			const activePitch = this.qwertyKeyboard.getActivePitch()
+			if (this.playbackMode === 'cutoff') {
+				this.noteStateLabel = 'Playing'
+				this.noteDetailText = activePitch === null
+					? 'The filter ADSR is ready to open and settle the low-pass cutoff on the next played note.'
+					: `${activePitch.noteLabel} is playing through the cutoff mode. The filter opens quickly, then settles into its sustain cutoff while the note stays held.`
+				return
+			}
+			if (this.playbackMode === 'pluck') {
+				this.noteStateLabel = 'Playing'
+				this.noteDetailText = activePitch === null
+					? 'The pluck mode is ready with a damped, string-like response.'
+					: `${activePitch.noteLabel} is sounding in pluck mode with a bright transient and quick damping toward a softer tone.`
+				return
+			}
 			if (this.isMonophonic) {
 				this.noteStateLabel = 'Playing'
 				this.noteDetailText = activePitch === null
-					? 'The monophonic synth is following the newest mapped key with a single sine voice.'
+					? 'The monophonic synth is following the newest mapped key with a single raw voice.'
 					: `${activePitch.noteLabel} is leading the monophonic synth. The newest held key controls one voice while earlier held keys wait silently for fallback.`
 				return
 			}
 
 			this.noteStateLabel = 'Playing'
 			this.noteDetailText = activePitch === null
-				? 'The polyphonic synth is sounding every currently held mapped key with its own sine voice.'
+				? 'The polyphonic synth is sounding every currently held mapped key with its own raw voice.'
 				: `${this.soundingVoiceCount} sounding voice${this.soundingVoiceCount === 1 ? '' : 's'} ${this.soundingVoiceCount === 1 ? 'is' : 'are'} active in polyphonic mode. ${activePitch.noteLabel} is the newest visible key while earlier held notes keep ringing.`
 			return
 		}
 
 		if (state === 'releasing') {
 			this.noteStateLabel = 'Releasing'
+			if (this.playbackMode === 'cutoff') {
+				this.noteDetailText = 'All held keys are up, so the filtered voice is fading out while the cutoff closes back toward its base position.'
+				return
+			}
+			if (this.playbackMode === 'pluck') {
+				this.noteDetailText = 'All held keys are up, so the pluck voice is fading through its short damped tail.'
+				return
+			}
 			this.noteDetailText = this.isMonophonic
 				? 'All held keys are up, so the monophonic voice is fading out with a short release.'
 				: 'All held keys are up, so every sounding voice is fading out together with a short release.'
@@ -208,7 +345,7 @@ export class App extends LitElement {
 		return uniqueFrequencyKeys.size
 	}
 
-	@Spec('Refreshes visible status text after a mode toggle using the synth state already on screen.')
+	@Spec('Refreshes visible status text after a mode or routing change using the synth state already on screen.')
 	private refreshVisibleStatusText() {
 		if (this.noteStateLabel === 'Unavailable') {
 			return
@@ -229,7 +366,7 @@ export class App extends LitElement {
 		return `${activePitch.frequencyHz.toFixed(2)} Hz · ${activePitch.noteLabel}`
 	}
 
-	@Spec('Updates the uploaded image preview and image-row waveform bank from one file selection so the synth can switch away from the sine oscillator.')
+	@Spec('Updates the uploaded image preview and image-row waveform bank from one file selection so the synth can switch away from the built-in oscillator shapes.')
 	private async onImageSelection(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const file = input?.files?.[0] ?? null
@@ -251,8 +388,8 @@ export class App extends LitElement {
 			this.availableRowCount = 0
 			this.selectedRowIndex = 0
 			this.synth.setWaveformSamples(null)
-			this.waveformLabel = 'Sine'
-			this.waveformDetailText = 'The selected image could not be decoded into waveform rows, so the synth stayed on the sine oscillator.'
+			this.waveformLabel = this.playbackMode === 'pluck' ? 'Triangle pluck' : 'Sine'
+			this.waveformDetailText = 'The selected image could not be decoded into waveform rows, so the synth stayed on its built-in waveform.'
 		}
 	}
 
@@ -276,7 +413,7 @@ export class App extends LitElement {
 		const selectedRow = this.imageWaveformRows[this.selectedRowIndex] ?? null
 		if (selectedRow === null) {
 			this.synth.setWaveformSamples(null)
-			this.waveformLabel = 'Sine'
+			this.waveformLabel = this.playbackMode === 'pluck' ? 'Triangle pluck' : 'Sine'
 			this.waveformDetailText = 'No uploaded image row is active yet.'
 			return
 		}
@@ -305,13 +442,129 @@ export class App extends LitElement {
 		this.uploadedImageUrl = null
 	}
 
-	@Spec('Builds the synth status and uploaded image panel section used by the main application layout.')
+	@Spec('Returns the compact help sentence shown under the smaller monophonic toggle card.')
+	private getMonophonicHelpText(): string {
+		return this.isMonophonic
+			? 'On makes the synth follow only the newest held pitch.'
+			: 'Off keeps every unique held pitch sounding polyphonically.'
+	}
+
+	@Spec('Returns the visible playback-mode label used in the right-side settings panel and compact summaries.')
+	private getPlaybackModeLabel(): string {
+		if (this.playbackMode === 'cutoff') {
+			return 'Cutoff'
+		}
+		if (this.playbackMode === 'pluck') {
+			return 'Pluck'
+		}
+		return 'Raw'
+	}
+
+	@Spec('Returns the visible envelope summary card text appropriate for the currently selected playback mode.')
+	private getEnvelopeSummary(): string {
+		if (this.playbackMode === 'cutoff') {
+			return `${this.filterAttackMs} ms A · ${this.filterDecayMs} ms D · ${this.filterSustainPercent}% S · ${this.filterReleaseMs} ms R`
+		}
+		if (this.playbackMode === 'pluck') {
+			return 'Fast pluck decay · damped filter'
+		}
+		return '40 ms attack · 120 ms release'
+	}
+
+	@Spec('Renders one visible playback-mode radio option inside the compact selector block.')
+	private renderPlaybackModeOption(playbackMode: SynthPlaybackMode, title: string, detail: string): TemplateResult {
+		const optionId = `playback-mode-${playbackMode}`
+		return html`
+			<label class=${`radio-option ${this.playbackMode === playbackMode ? 'radio-option-selected' : ''}`} for=${optionId}>
+				<input id=${optionId} class="radio-input" type="radio" name="playback-mode" value=${playbackMode} ?checked=${this.playbackMode === playbackMode} @change=${this.onPlaybackModeChange} />
+				<span class="radio-mark" aria-hidden="true"></span>
+				<span class="radio-copy">
+					<span class="radio-title">${title}</span>
+					<span class="radio-detail">${detail}</span>
+				</span>
+			</label>
+		`
+	}
+
+	@Spec('Renders one labeled filter slider row for the cutoff playback mode settings panel.')
+	private renderFilterSettingSlider(
+		inputId: string,
+		label: string,
+		name: string,
+		value: number,
+		min: number,
+		max: number,
+		step: number,
+		valueSuffix: string
+	): TemplateResult {
+		return html`
+			<label class="setting-control" for=${inputId}>
+				<span class="setting-label-row">
+					<span class="status-label">${label}</span>
+					<span class="setting-value">${value}${valueSuffix}</span>
+				</span>
+				<input id=${inputId} class="settings-slider" type="range" name=${name} min=${String(min)} max=${String(max)} step=${String(step)} .value=${String(value)} @input=${this.onFilterSettingChange} />
+			</label>
+		`
+	}
+
+	@Spec('Renders the right-side playback settings panel so cutoff controls appear in the formerly empty area beside the main panel.')
+	private renderSoundDesignPanel(): TemplateResult {
+		if (this.playbackMode === 'cutoff') {
+			return html`
+				<section class="sound-design-card" aria-label="Playback settings panel">
+					<div class="sound-design-header">
+						<div class="status-label">Playback settings</div>
+						<div id="playback-mode-value" class="plate-value">${this.getPlaybackModeLabel()}</div>
+					</div>
+					<div id="playback-settings-mode-copy" class="panel-copy">Filter ADSR + low-pass cutoff shaping for the active waveform.</div>
+					<div id="filter-envelope-summary" class="settings-summary">${this.getEnvelopeSummary()}</div>
+					<div id="filter-cutoff-summary" class="settings-summary">${this.filterBaseCutoffHz} Hz base · ${Math.max(this.filterPeakCutoffHz, this.filterBaseCutoffHz + 20)} Hz peak · Q ${this.filterResonance.toFixed(1)}</div>
+					<div class="settings-grid">
+						${this.renderFilterSettingSlider('filter-attack-slider', 'Attack', 'filter-attack-ms', this.filterAttackMs, 0, 1000, 5, ' ms')}
+						${this.renderFilterSettingSlider('filter-decay-slider', 'Decay', 'filter-decay-ms', this.filterDecayMs, 0, 2000, 5, ' ms')}
+						${this.renderFilterSettingSlider('filter-sustain-slider', 'Sustain', 'filter-sustain-percent', this.filterSustainPercent, 0, 100, 1, '%')}
+						${this.renderFilterSettingSlider('filter-release-slider', 'Release', 'filter-release-ms', this.filterReleaseMs, 10, 2500, 5, ' ms')}
+						${this.renderFilterSettingSlider('filter-base-cutoff-slider', 'Base cutoff', 'filter-base-cutoff-hz', this.filterBaseCutoffHz, 40, 4000, 10, ' Hz')}
+						${this.renderFilterSettingSlider('filter-peak-cutoff-slider', 'Peak cutoff', 'filter-peak-cutoff-hz', this.filterPeakCutoffHz, 80, 12000, 10, ' Hz')}
+						${this.renderFilterSettingSlider('filter-resonance-slider', 'Resonance', 'filter-resonance', this.filterResonance, 0.1, 18, 0.1, '')}
+					</div>
+				</section>
+			`
+		}
+
+		if (this.playbackMode === 'pluck') {
+			return html`
+				<section class="sound-design-card" aria-label="Playback settings panel">
+					<div class="sound-design-header">
+						<div class="status-label">Playback settings</div>
+						<div id="playback-mode-value" class="plate-value">${this.getPlaybackModeLabel()}</div>
+					</div>
+					<div id="playback-settings-mode-copy" class="panel-copy">Pluck mode uses a bright transient, quick damping, and a low-pass settle to approximate a string-like response.</div>
+					<div id="playback-settings-empty" class="settings-empty">No extra controls yet. This mode uses a fixed damped-pluck recipe for now.</div>
+				</section>
+			`
+		}
+
+		return html`
+			<section class="sound-design-card" aria-label="Playback settings panel">
+				<div class="sound-design-header">
+					<div class="status-label">Playback settings</div>
+					<div id="playback-mode-value" class="plate-value">${this.getPlaybackModeLabel()}</div>
+				</div>
+				<div id="playback-settings-mode-copy" class="panel-copy">Raw mode plays the current waveform directly with no extra shaping stage.</div>
+				<div id="playback-settings-empty" class="settings-empty">No extra settings are needed for raw playback.</div>
+			</section>
+		`
+	}
+
+	@Spec('Builds the synth status cards, uploaded image panel, and the new right-side playback settings panel used by the main application layout.')
 	private renderStatusUploadPanel(): TemplateResult {
 		return html`
-			<section class="status-upload-layout" aria-label="Synth status and uploaded image panel">
+			<section class="status-upload-layout" aria-label="Synth status, uploaded image panel, and playback settings">
 				<section class="status-grid" aria-label="Keyboard synth status">
 					<div class="status-card"><div class="status-label">Waveform</div><div id="waveform-value" class="status-value">${this.waveformLabel}</div></div>
-					<div class="status-card"><div class="status-label">Envelope</div><div id="envelope-value" class="status-value">40 ms attack · 120 ms release</div></div>
+					<div class="status-card"><div class="status-label">Envelope</div><div id="envelope-value" class="status-value">${this.getEnvelopeSummary()}</div></div>
 					<div class="status-card"><div class="status-label">Voice mode</div><div id="voice-mode-value" class="status-value">${this.isMonophonic ? 'Monophonic' : 'Polyphonic'}</div></div>
 					<div class="status-card"><div class="status-label">Sounding voices</div><div id="sounding-voices-value" class="status-value">${this.soundingVoiceCount}</div></div>
 					<div class="status-card"><div class="status-label">Active key</div><div id="active-key-value" class="status-value">${this.activeKeyLabel}</div></div>
@@ -336,11 +589,12 @@ export class App extends LitElement {
 						<image-waveform-preview .samples=${[...(this.imageWaveformRows[this.selectedRowIndex]?.samples ?? [])]} previewLabel=${'Selected waveform preview'} .rowIndex=${this.availableRowCount === 0 ? -1 : this.selectedRowIndex} .rowCount=${this.availableRowCount}></image-waveform-preview>
 					</div>
 				</section>
+				${this.renderSoundDesignPanel()}
 			</section>
 		`
 	}
 
-	@Spec('Renders the QWERTY keyboard guide, mono-poly switch, visible synth status cards, and the uploaded image waveform panel.')
+	@Spec('Renders the QWERTY keyboard guide, compact monophonic toggle, playback-mode selector, visible synth status cards, uploaded image waveform panel, and right-side sound settings panel.')
 	render(): TemplateResult {
 		return html`
 			<main>
@@ -372,8 +626,8 @@ export class App extends LitElement {
 					</div>
 				</section>
 
-				<section class="mode-section" aria-label="Synth voice mode control">
-					<label class="switch-card" for="monophonic-toggle">
+				<section class="mode-section" aria-label="Synth voice mode and playback mode controls">
+					<label class="switch-card switch-card-compact" for="monophonic-toggle">
 						<div class="switch-label">Monophonic mode</div>
 						<div class="switch-row">
 							<div id="monophonic-toggle-value" class="switch-value">${this.isMonophonic ? 'On' : 'Off'}</div>
@@ -382,8 +636,16 @@ export class App extends LitElement {
 								<span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
 							</span>
 						</div>
-						<div id="voice-mode-help" class="switch-detail">Off keeps every unique held pitch sounding polyphonically. On makes the synth follow only the newest held pitch.</div>
+						<div id="voice-mode-help" class="switch-detail">${this.getMonophonicHelpText()}</div>
 					</label>
+					<section class="mode-selector-card" aria-label="Playback mode selector">
+						<div class="switch-label">Playback mode</div>
+						<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
+							${this.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
+							${this.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
+							${this.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
+						</div>
+					</section>
 				</section>
 
 				${this.renderStatusUploadPanel()}
