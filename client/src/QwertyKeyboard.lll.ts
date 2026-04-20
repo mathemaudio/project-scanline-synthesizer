@@ -3,7 +3,7 @@ import { KeyboardPitch } from './KeyboardPitch.lll'
 
 @Spec('Maps QWERTY keys to chromatic pitches, keeps held-key order, and exposes both active and polyphonic pitch state.')
 export class QwertyKeyboard {
-	private readonly baseOctave: number
+	private baseOctave: number
 	private readonly pitchReferenceHz: number
 	private readonly semitoneOffsetsByKey: Record<string, number> = {
 		q: 0,
@@ -112,6 +112,17 @@ export class QwertyKeyboard {
 		return this.heldKeys
 			.map((heldKey) => this.getPitchForKey(heldKey))
 			.filter((pitch): pitch is KeyboardPitch => pitch !== null)
+	}
+
+	@Spec('Shifts the mapped keyboard layout by octaves within a safe playable range and returns the applied base octave.')
+	shiftBaseOctave(direction: -1 | 1): number {
+		this.baseOctave = Math.max(0, Math.min(7, this.baseOctave + direction))
+		return this.baseOctave
+	}
+
+	@Spec('Returns the current base octave used to derive mapped QWERTY note labels and frequencies.')
+	getBaseOctave(): number {
+		return this.baseOctave
 	}
 
 	@Spec('Normalizes browser key text so shifted letter presses still map to the intended synth note.')

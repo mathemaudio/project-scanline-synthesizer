@@ -298,7 +298,7 @@ export class AppTest {
 		}
 	}
 
-	@Scenario('loop crossfade defaults to zero percent and the waveform preview shows three cycles')
+	@Scenario('loop crossfade defaults to ten percent and the waveform preview shows three cycles')
 	static async showsLoopCrossfadeControlAndThreeCyclePreview(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ crossfadeValue: string, previewMeta: string, canvasWidth: number, canvasHeight: number }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
@@ -325,14 +325,14 @@ export class AppTest {
 			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
 			await app.updateComplete
 			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Row '), 'Expected an uploaded image row waveform to become active before inspecting the new preview controls')
-			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('0%'), 'Expected the new loop crossfade control to default to zero percent')
+			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('10%'), 'Expected the new loop crossfade control to default to ten percent')
 
 			const crossfadeValue = this.readText(app, '#waveform-crossfade-value')
 			const previewMeta = this.readTextFromShadowHost(app, 'image-waveform-preview', '#waveform-preview-meta')
 			const previewCanvas = app.shadowRoot?.querySelector('image-waveform-preview')?.shadowRoot?.querySelector<HTMLCanvasElement>('#waveform-preview-canvas')
 			assert(previewCanvas !== null && previewCanvas !== undefined, 'Expected the three-cycle waveform preview canvas to render after upload')
-			assert(crossfadeValue === '0% seam overlap', 'Expected the loop crossfade value label to default to zero percent')
-			assert(previewMeta.includes('0% loop crossfade'), 'Expected the preview metadata to mention the default loop crossfade amount')
+			assert(crossfadeValue === '10% seam overlap', 'Expected the loop crossfade value label to default to ten percent')
+			assert(previewMeta.includes('10% loop crossfade'), 'Expected the preview metadata to mention the default loop crossfade amount')
 			assert(previewCanvas.width === 960, 'Expected the selected waveform preview to widen for three cycles')
 			assert(previewCanvas.height === 146, 'Expected the selected waveform preview to become taller for the new three-cycle display')
 			return { crossfadeValue, previewMeta, canvasWidth: previewCanvas.width, canvasHeight: previewCanvas.height }
@@ -385,7 +385,7 @@ export class AppTest {
 			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
 			await app.updateComplete
 			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Row '), 'Expected an uploaded image row waveform to become active before moving the loop crossfade slider')
-			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('0%'), 'Expected the loop crossfade control to render before adjusting it')
+			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('10%'), 'Expected the loop crossfade control to render at the new default before adjusting it')
 
 			const crossfadeSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-crossfade-slider')
 			assert(crossfadeSlider !== null && crossfadeSlider !== undefined, 'Expected loop crossfade slider to exist')
@@ -493,6 +493,54 @@ export class AppTest {
 				delete (globalThis as Record<string, unknown>)['HTMLElement']
 			} else {
 				(globalThis as Record<string, unknown>)['HTMLElement'] = originalHTMLElement
+			}
+		}
+	}
+
+	@Scenario('octave corner buttons shift the QWERTY guide and active played note up and down')
+	static async shiftsKeyboardOctaveFromCornerButtons(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ loweredGuide: string, raisedGuide: string, loweredNote: string, raisedNote: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const octaveDownButton = app.shadowRoot?.querySelector<HTMLButtonElement>('#keyboard-octave-down-button')
+			const octaveUpButton = app.shadowRoot?.querySelector<HTMLButtonElement>('#keyboard-octave-up-button')
+			assert(octaveDownButton !== null && octaveDownButton !== undefined, 'Expected the lower-left octave down button to exist')
+			assert(octaveUpButton !== null && octaveUpButton !== undefined, 'Expected the lower-left octave up button to exist')
+
+			octaveDownButton.click()
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#keyboard-row-top-value').includes('C1 to E2'), 'Expected the upper keyboard guide to move down one octave after clicking the down button')
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#active-note-value') === 'C1', 'Expected Q to play C1 after lowering the keyboard octave')
+			const loweredGuide = this.readText(app, '#keyboard-row-top-value')
+			const loweredNote = this.readText(app, '#active-note-value')
+
+			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
+			octaveUpButton.click()
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#keyboard-row-top-value').includes('C2 to E3'), 'Expected the upper keyboard guide to return to the new default octave after clicking the up button')
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#active-note-value') === 'C2', 'Expected Q to play C2 again after raising the keyboard octave')
+			const raisedGuide = this.readText(app, '#keyboard-row-top-value')
+			const raisedNote = this.readText(app, '#active-note-value')
+
+			assert(loweredGuide.includes('C1 to E2'), 'Expected the visible upper-row guide to reflect the lowered octave range')
+			assert(raisedGuide.includes('C2 to E3'), 'Expected the visible upper-row guide to reflect the restored default octave range')
+			assert(loweredNote === 'C1', 'Expected the played Q note to follow the lowered octave mapping')
+			assert(raisedNote === 'C2', 'Expected the played Q note to follow the raised octave mapping')
+			return { loweredGuide, raisedGuide, loweredNote, raisedNote }
+		} finally {
+			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
 			}
 		}
 	}

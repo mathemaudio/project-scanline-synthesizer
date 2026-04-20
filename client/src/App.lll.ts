@@ -34,6 +34,8 @@ export class App extends LitElement {
 	@state()
 	public triggerCount: number = 0
 	@state()
+	public keyboardBaseOctave: number = 2
+	@state()
 	public isMonophonic: boolean = false
 
 	@state()
@@ -97,7 +99,7 @@ export class App extends LitElement {
 	@state()
 	public delayTimeMs: number = 280
 	@state()
-	public waveformCrossfadePercent: number = 0
+	public waveformCrossfadePercent: number = 10
 
 	public imageWaveformRows: ImageWaveformRow[] = []
 	private readonly imageWaveformBank = new ImageWaveformBank()
@@ -127,7 +129,7 @@ export class App extends LitElement {
 	})
 
 	private readonly qwertyKeyboard = new QwertyKeyboard({
-		baseOctave: 4,
+		baseOctave: this.keyboardBaseOctave,
 		pitchReferenceHz: 440
 	})
 
@@ -210,6 +212,14 @@ export class App extends LitElement {
 		this.synth.setPlaybackMode(this.playbackMode)
 		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
 		this.synth.setEffectsSettings(this.createEffectsSettings())
+		await this.rebuildHeldNotesForPlaybackChange()
+	}
+
+	@Spec('Moves the mapped QWERTY keyboard one octave down or up and immediately refreshes the synth and visible guide text.')
+	public async onKeyboardOctaveShift(direction: -1 | 1) {
+		this.keyboardBaseOctave = this.qwertyKeyboard.shiftBaseOctave(direction)
+		const activePitch = this.qwertyKeyboard.getActivePitch()
+		this.updateActivePitchDisplay(activePitch)
 		await this.rebuildHeldNotesForPlaybackChange()
 	}
 
@@ -560,6 +570,16 @@ export class App extends LitElement {
 		return 'Raw'
 	}
 
+	@Spec('Returns the current visible QWERTY guide label for the upper mapped row based on the selected base octave.')
+	public getKeyboardUpperRowGuide(): string {
+		return `Q 2 W 3 E R 5 T 6 Y 7 U I 9 O 0 P → C${this.keyboardBaseOctave} to E${this.keyboardBaseOctave + 1}`
+	}
+
+	@Spec('Returns the current visible QWERTY guide label for the lower mapped row based on the selected base octave.')
+	public getKeyboardLowerRowGuide(): string {
+		return `Z S X D C V G B H N J M → C${this.keyboardBaseOctave + 1} to B${this.keyboardBaseOctave + 1}`
+	}
+
 	@Spec('Returns the visible envelope summary card text appropriate for the currently selected playback mode.')
 	public getEnvelopeSummary(): string {
 		if (this.playbackMode === 'cutoff') {
@@ -609,11 +629,11 @@ export class App extends LitElement {
 				<section class="keyboard-guide" aria-label="QWERTY keyboard mapping">
 					<div class="guide-card">
 						<div class="guide-label">Upper row</div>
-						<div id="keyboard-row-top-value" class="guide-value">Q 2 W 3 E R 5 T 6 Y 7 U I 9 O 0 P → C4 to E5</div>
+						<div id="keyboard-row-top-value" class="guide-value">${this.getKeyboardUpperRowGuide()}</div>
 					</div>
 					<div class="guide-card">
 						<div class="guide-label">Lower row</div>
-						<div id="keyboard-row-bottom-value" class="guide-value">Z S X D C V G B H N J M → C5 to B5</div>
+						<div id="keyboard-row-bottom-value" class="guide-value">${this.getKeyboardLowerRowGuide()}</div>
 					</div>
 				</section>
 

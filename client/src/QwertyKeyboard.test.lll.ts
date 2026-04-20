@@ -60,6 +60,23 @@ export class QwertyKeyboardTest {
 		return { heldAfterFirstRelease, heldAfterSecondRelease, finalActiveNote }
 	}
 
+	@Scenario('shifting the keyboard up and down changes the mapped base octave safely')
+	static async shiftsKeyboardBaseOctave(subjectFactory: SubjectFactory<QwertyKeyboard>, scenario: ScenarioParameter): Promise<{ loweredNote: string, raisedNote: string, finalBaseOctave: number }> {
+		const assert: AssertFn = this.readScenario(subjectFactory, scenario)?.assert ?? this.failFastAssert
+		const keyboard = await this.createKeyboard(subjectFactory)
+
+		const loweredBaseOctave = keyboard.shiftBaseOctave(-1)
+		const loweredNote = keyboard.getPitchForKey('q')?.noteLabel ?? 'none'
+		const raisedBaseOctave = keyboard.shiftBaseOctave(1)
+		const raisedNote = keyboard.getPitchForKey('q')?.noteLabel ?? 'none'
+
+		assert(loweredBaseOctave === 3, 'Expected shifting down from the default base octave to land on octave 3')
+		assert(loweredNote === 'C3', 'Expected Q to map to C3 after lowering the base octave')
+		assert(raisedBaseOctave === 4, 'Expected shifting back up to restore the default base octave')
+		assert(raisedNote === 'C4', 'Expected Q to map back to C4 after raising the base octave')
+		return { loweredNote, raisedNote, finalBaseOctave: keyboard.getBaseOctave() }
+	}
+
 	@Spec('Creates a keyboard subject through the runner when available or directly otherwise.')
 	private static async createKeyboard(subjectFactory: SubjectFactory<QwertyKeyboard>): Promise<QwertyKeyboard> {
 		if (typeof subjectFactory === 'function') {

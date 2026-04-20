@@ -209,6 +209,13 @@ export class AppStyles {
 			gap: 12px;
 		}
 
+		.keyboard-octave-controls {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 18px;
+			margin-top: 6px;
+		}
+
 		.status-table-card {
 			display: grid;
 			padding: 14px 16px;
@@ -298,6 +305,45 @@ export class AppStyles {
 		.radio-input,
 		.switch-input {
 			display: none;
+		}
+
+		.keyboard-octave-button {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 96px;
+			border-radius: 18px;
+			border: 1px solid rgba(109, 214, 117, 0.45);
+			background:
+				linear-gradient(180deg, rgba(255, 247, 234, 0.04), rgba(0, 0, 0, 0.18)),
+				linear-gradient(135deg, rgba(63, 49, 39, 0.98), rgba(38, 29, 23, 0.98));
+			box-shadow:
+				inset 0 1px 0 rgba(255, 248, 230, 0.05),
+				0 0 0 1px rgba(17, 178, 42, 0.22),
+				0 10px 18px rgba(0, 0, 0, 0.18);
+			color: #19d12f;
+			cursor: pointer;
+			transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+		}
+
+		.keyboard-octave-button:hover,
+		.keyboard-octave-button:focus-visible {
+			transform: translateY(-1px);
+			border-color: rgba(128, 238, 136, 0.7);
+			box-shadow:
+				inset 0 1px 0 rgba(255, 248, 230, 0.05),
+				0 0 0 1px rgba(31, 217, 59, 0.32),
+				0 0 20px rgba(25, 209, 47, 0.15),
+				0 10px 18px rgba(0, 0, 0, 0.18);
+			outline: none;
+		}
+
+		.keyboard-octave-symbol {
+			font-family: 'Orbitron', 'Inter', sans-serif;
+			font-size: 3.6rem;
+			line-height: 1;
+			font-weight: 700;
+			text-shadow: 0 0 14px rgba(25, 209, 47, 0.24);
 		}
 
 		.waveform-preview-panel {
@@ -519,6 +565,10 @@ export class AppStyles {
 				grid-column: auto;
 				grid-template-columns: minmax(0, 1fr);
 				gap: 4px;
+			}
+
+			.keyboard-octave-button {
+				min-height: 78px;
 			}
 
 			:host {

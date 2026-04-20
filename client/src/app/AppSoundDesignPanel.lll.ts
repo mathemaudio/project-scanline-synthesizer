@@ -34,6 +34,20 @@ export class AppSoundDesignPanel {
 			`
 	}
 
+	@Spec('Renders the two compact octave shift buttons placed at the lower-left corner of the status column.')
+	public renderKeyboardOctaveControls(): TemplateResult {
+		return html`
+			<section class="keyboard-octave-controls" aria-label="Keyboard octave controls">
+				<button id="keyboard-octave-down-button" class="keyboard-octave-button" type="button" aria-label="Move keyboard down one octave" @click=${() => void this.source.onKeyboardOctaveShift(-1)}>
+					<span class="keyboard-octave-symbol" aria-hidden="true">↓</span>
+				</button>
+				<button id="keyboard-octave-up-button" class="keyboard-octave-button" type="button" aria-label="Move keyboard up one octave" @click=${() => void this.source.onKeyboardOctaveShift(1)}>
+					<span class="keyboard-octave-symbol" aria-hidden="true">↑</span>
+				</button>
+			</section>
+		`
+	}
+
 	@Spec('Renders the always-on effects card used in the left status column beneath the synth status table.')
 	public renderEffectsPanel(): TemplateResult {
 		return html`
@@ -123,6 +137,7 @@ export class AppSoundDesignPanel {
 							</div>
 						</div>
 						${this.renderEffectsPanel()}
+						${this.renderKeyboardOctaveControls()}
 					</section>
 					<section class="upload-card" aria-label="Image upload panel">
 						<div class="status-label">Reference image</div>
