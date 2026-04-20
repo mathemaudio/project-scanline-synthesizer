@@ -530,6 +530,34 @@ export class AppTest {
 		}
 	}
 
+	@Scenario('pitch card shows only frequency because active note is already listed separately')
+	static async showsPitchCardAsFrequencyOnly(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ activeNote: string, pitch: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#pitch-value') === '65.41 Hz', 'Expected the pitch card to show only the played frequency for Q at the default octave')
+
+			const activeNote = this.readText(app, '#active-note-value')
+			const pitch = this.readText(app, '#pitch-value')
+			assert(activeNote === 'C2', 'Expected the active note card to keep showing the note label separately')
+			assert(pitch === '65.41 Hz', 'Expected the pitch card to omit duplicated note text and show only frequency')
+			return { activeNote, pitch }
+		} finally {
+			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+		}
+	}
+
 	@Scenario('octave corner buttons shift the QWERTY guide and active played note up and down')
 	static async shiftsKeyboardOctaveFromCornerButtons(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ loweredGuide: string, raisedGuide: string, loweredNote: string, raisedNote: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert

@@ -454,7 +454,7 @@ export class App extends LitElement {
 
 	@Spec('Formats one mapped pitch into the visible frequency card text shown in the app UI.')
 	private formatPitchValue(activePitch: KeyboardPitch): string {
-		return `${activePitch.frequencyHz.toFixed(2)} Hz · ${activePitch.noteLabel}`
+		return `${activePitch.frequencyHz.toFixed(2)} Hz`
 	}
 
 	@Spec('Updates the uploaded image preview and image-row waveform bank from one file selection so the synth can switch away from the built-in oscillator shapes.')
