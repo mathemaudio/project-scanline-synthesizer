@@ -6,8 +6,8 @@ import { App } from './App.lll'
 export class AppTest {
 	testType = 'behavioral'
 
-	@Scenario('polyphonic mode shows two sounding voices for Q then W!')
-	static async showsPolyphonicVoiceCountForTwoHeldKeys(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ voiceMode: string, soundingVoices: string, activeKey: string }> {
+	@Scenario('monophonic mode is on by default and still tracks the newest held key')
+	static async showsMonophonicDefaultForTwoHeldKeys(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ voiceMode: string, soundingVoices: string, activeKey: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -19,14 +19,14 @@ export class AppTest {
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true, cancelable: true }))
 			await app.updateComplete
 
-			await waitFor(() => this.readText(app, '#sounding-voices-value') === '2', 'Expected two sounding voices after holding Q and W in polyphonic mode')
+			await waitFor(() => this.readText(app, '#sounding-voices-value') === '1', 'Expected one sounding voice after holding Q and W in default monophonic mode')
 			const voiceMode = this.readText(app, '#voice-mode-value')
 			const soundingVoices = this.readText(app, '#sounding-voices-value')
 			const activeKey = this.readText(app, '#active-key-value')
 			const playbackMode = this.readText(app, '#playback-mode-value')
 
-			assert(voiceMode === 'Polyphonic', 'Expected the app to remain in polyphonic mode by default')
-			assert(soundingVoices === '2', 'Expected two sounding voices to be visible')
+			assert(voiceMode === 'Monophonic', 'Expected the app to start in monophonic mode by default')
+			assert(soundingVoices === '1', 'Expected only one sounding voice to be visible in default monophonic mode')
 			assert(activeKey === 'W', 'Expected the newest held key to become active')
 			assert(playbackMode === 'Cutoff', 'Expected cutoff playback mode to be selected by default')
 			return { voiceMode, soundingVoices, activeKey }
@@ -41,8 +41,8 @@ export class AppTest {
 		}
 	}
 
-	@Scenario('switching monophonic mode collapses held keys to one sounding voice')
-	static async collapsesHeldKeysWhenMonophonicModeIsEnabled(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ toggleValue: string, voiceMode: string, soundingVoices: string, noteState: string, portamentoValue: string }> {
+	@Scenario('monophonic mode and portamento are on by default')
+	static async showsMonophonicAndPortamentoDefaults(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ toggleValue: string, voiceMode: string, soundingVoices: string, noteState: string, portamentoValue: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -52,13 +52,9 @@ export class AppTest {
 			await this.prepareMountedApp(app, waitFor)
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true, cancelable: true }))
-			const toggle = app.shadowRoot?.querySelector<HTMLInputElement>('#monophonic-toggle')
-			assert(toggle !== null && toggle !== undefined, 'Expected monophonic toggle to exist')
-			toggle.checked = true
-			toggle.dispatchEvent(new Event('change', { bubbles: true }))
 			await app.updateComplete
 
-			await waitFor(() => this.readText(app, '#sounding-voices-value') === '1', 'Expected monophonic mode to collapse visible sounding voices to one')
+			await waitFor(() => this.readText(app, '#sounding-voices-value') === '1', 'Expected monophonic mode to be active by default and keep one visible sounding voice')
 			const toggleValue = this.readText(app, '#monophonic-toggle-value')
 			const voiceMode = this.readText(app, '#voice-mode-value')
 			const soundingVoices = this.readText(app, '#sounding-voices-value')

@@ -36,7 +36,7 @@ export class App extends LitElement {
 	@state()
 	public keyboardBaseOctave: number = 2
 	@state()
-	public isMonophonic: boolean = false
+	public isMonophonic: boolean = true
 	@state()
 	public portamentoMs: number = 50
 
@@ -108,7 +108,7 @@ export class App extends LitElement {
 	private readonly waveformCycleCrossfader = new WaveformCycleCrossfader()
 
 	private readonly synth = new PrimitiveSynth({
-		monophonic: false,
+		monophonic: true,
 		playbackMode: 'cutoff',
 		filterEnvelopeSettings: {
 			attackSeconds: 0.04,
