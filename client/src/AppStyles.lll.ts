@@ -416,9 +416,9 @@ export class AppStyles {
 			transform: translateX(30px);
 		}
 
-		.switch-detail {
-			font-size: 0.88rem;
-			max-width: 23ch;
+		.switch-setting-control {
+			gap: 10px;
+			padding: 12px 14px;
 		}
 
 		.radio-group {

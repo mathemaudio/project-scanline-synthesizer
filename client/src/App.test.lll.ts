@@ -42,7 +42,7 @@ export class AppTest {
 	}
 
 	@Scenario('switching monophonic mode collapses held keys to one sounding voice')
-	static async collapsesHeldKeysWhenMonophonicModeIsEnabled(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ toggleValue: string, voiceMode: string, soundingVoices: string, noteState: string }> {
+	static async collapsesHeldKeysWhenMonophonicModeIsEnabled(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ toggleValue: string, voiceMode: string, soundingVoices: string, noteState: string, portamentoValue: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -63,15 +63,48 @@ export class AppTest {
 			const voiceMode = this.readText(app, '#voice-mode-value')
 			const soundingVoices = this.readText(app, '#sounding-voices-value')
 			const noteState = this.readText(app, '#note-state-value')
+			const portamentoValue = this.readText(app, '#portamento-value')
 
 			assert(toggleValue === 'On', 'Expected the visible monophonic toggle label to turn On')
 			assert(voiceMode === 'Monophonic', 'Expected voice mode card to show Monophonic')
 			assert(soundingVoices === '1', 'Expected only one sounding voice in monophonic mode with overlapping keys held')
 			assert(noteState === 'Playing', 'Expected note state to remain visibly Playing while a note is sounding')
-			return { toggleValue, voiceMode, soundingVoices, noteState }
+			assert(portamentoValue === '50 ms', 'Expected the monophonic card to show the new 50 ms default portamento value')
+			return { toggleValue, voiceMode, soundingVoices, noteState, portamentoValue }
 		} finally {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', bubbles: true, cancelable: true }))
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+		}
+	}
+
+	@Scenario('adjusting monophonic portamento updates the visible slider value')
+	static async updatesMonophonicPortamentoValue(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ portamentoValue: string, sliderValue: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const portamentoSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#portamento-slider')
+			assert(portamentoSlider !== null && portamentoSlider !== undefined, 'Expected portamento slider to exist in the monophonic card')
+			portamentoSlider.value = '640'
+			portamentoSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#portamento-value') === '640 ms', 'Expected the visible portamento value to update after moving the slider')
+
+			const portamentoValue = this.readText(app, '#portamento-value')
+			const sliderValue = this.readTextFromValueContainer(app, '#portamento-slider')
+
+			assert(portamentoValue === '640 ms', 'Expected the monophonic card to show the updated portamento milliseconds')
+			assert(sliderValue === '640', 'Expected the portamento slider input value to stay in sync with the visible label')
+			return { portamentoValue, sliderValue }
+		} finally {
 			if (originalAudioContext === undefined) {
 				delete (globalThis as Record<string, unknown>)['AudioContext']
 			} else {
@@ -709,9 +742,21 @@ export class AppTest {
 				} as unknown as DelayNode
 			}
 			createOscillator(): OscillatorNode {
+				const frequency = {
+					value: 0,
+					cancelScheduledValues: () => { },
+					setValueAtTime(value: number) {
+						this.value = value
+						return this
+					},
+					linearRampToValueAtTime(value: number) {
+						this.value = value
+						return this
+					}
+				}
 				const oscillator = {
 					type: 'sine',
-					frequency: { value: 0 },
+					frequency: frequency,
 					onended: null as (() => void) | null,
 					connect: () => { },
 					disconnect: () => { },

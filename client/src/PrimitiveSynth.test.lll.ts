@@ -61,6 +61,66 @@ export class PrimitiveSynthTest {
 		return { activeVoiceCountBeforeRelease, released, finalState }
 	}
 
+	@Scenario('monophonic portamento glides one active voice toward the newest held frequency')
+	static async glidesMonophonicVoiceWhenPortamentoIsRaised(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ activeVoiceCount: number, rampTargetHz: number, finalFrequencyHz: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			monophonic: true,
+			portamentoSeconds: 0.4,
+			createAudioContext: () => fakeAudioContext
+		})
+
+		await synth.syncNotes([261.625565])
+		await waitFor(() => synth.getActiveVoiceCount() === 1, 'Expected one monophonic voice after starting the first note')
+		await synth.syncNotes([329.627557])
+		const activeVoiceCount = synth.getActiveVoiceCount()
+		const rampTargetHz = (fakeAudioContext as unknown as { lastFrequencyRampTarget: number }).lastFrequencyRampTarget
+		const finalFrequencyHz = (fakeAudioContext as unknown as { lastFrequencyValue: number }).lastFrequencyValue
+
+		assert(activeVoiceCount === 1, 'Expected monophonic glide to keep only one active voice')
+		assert(Math.abs(rampTargetHz - 329.627557) < 0.000001, 'Expected portamento to ramp toward the newest held frequency')
+		assert(Math.abs(finalFrequencyHz - 329.627557) < 0.000001, 'Expected the oscillator frequency value to settle on the newest held frequency')
+		return { activeVoiceCount, rampTargetHz, finalFrequencyHz }
+	}
+
+	@Scenario('monophonic portamento remembers the last played pitch even after release')
+	static async remembersReleasedPitchForNextMonophonicGlide(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ restartVoiceCount: number, restartStartHz: number, rampTargetHz: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const readyCallbacks: Array<() => void> = []
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			monophonic: true,
+			portamentoSeconds: 0.05,
+			createAudioContext: () => fakeAudioContext,
+			scheduleTimeout: (callback: () => void) => {
+				readyCallbacks.push(callback)
+				return readyCallbacks.length
+			},
+			cancelTimeout: () => {}
+		})
+
+		await synth.syncNotes([261.625565])
+		await waitFor(() => synth.getActiveVoiceCount() === 1, 'Expected one active monophonic voice after the first note starts')
+		synth.releaseNote()
+		readyCallbacks.forEach((callback) => callback())
+		await waitFor(() => synth.getActiveVoiceCount() === 0, 'Expected the released monophonic voice to clear before the next note starts')
+		await synth.syncNotes([391.995436])
+		await waitFor(() => synth.getActiveVoiceCount() === 1, 'Expected one active monophonic voice after restarting from silence')
+		const restartVoiceCount = synth.getActiveVoiceCount()
+		const restartStartHz = (fakeAudioContext as unknown as { lastFrequencySetValue: number }).lastFrequencySetValue
+		const rampTargetHz = (fakeAudioContext as unknown as { lastFrequencyRampTarget: number }).lastFrequencyRampTarget
+
+		assert(restartVoiceCount === 1, 'Expected one restarted monophonic voice after playing a new note from silence')
+		assert(Math.abs(restartStartHz - 261.625565) < 0.000001, 'Expected the restarted note to glide from the remembered last played pitch')
+		assert(Math.abs(rampTargetHz - 391.995436) < 0.000001, 'Expected the restarted note to ramp toward the new target pitch after release')
+		return { restartVoiceCount, restartStartHz, rampTargetHz }
+	}
+
 	@Scenario('uploaded waveform samples switch oscillators away from the default sine type')
 	static async usesPeriodicWaveWhenImageSamplesAreProvided(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, oscillatorType: string, periodicWaveCallCount: number }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -252,6 +312,9 @@ export class PrimitiveSynthTest {
 			gainCount: 0,
 			delayCount: 0,
 			lastFilterQ: 0,
+			lastFrequencyRampTarget: 0,
+			lastFrequencyValue: 0,
+			lastFrequencySetValue: 0,
 			state: 'running',
 			currentTime: 0,
 			destination: destination as AudioDestinationNode,
@@ -288,9 +351,25 @@ export class PrimitiveSynthTest {
 				} as unknown as DelayNode
 			},
 			createOscillator() {
+				const frequency = {
+					value: 0,
+					cancelScheduledValues: () => {},
+					setValueAtTime(value: number) {
+						this.value = value
+						fakeAudioContext.lastFrequencyValue = value
+						fakeAudioContext.lastFrequencySetValue = value
+						return this
+					},
+					linearRampToValueAtTime(value: number) {
+						this.value = value
+						fakeAudioContext.lastFrequencyValue = value
+						fakeAudioContext.lastFrequencyRampTarget = value
+						return this
+					}
+				}
 				const oscillator = {
 					type: 'sine',
-					frequency: { value: 0 },
+					frequency: frequency,
 					onended: null as (() => void) | null,
 					connect: () => {},
 					disconnect: () => {},

@@ -25,6 +25,8 @@ export class PrimitiveSynth {
 	private playbackMode: SynthPlaybackMode
 	private filterEnvelopeSettings: FilterEnvelopeSettings
 	private effectsSettings: EffectsSettings
+	private portamentoSeconds: number
+	private lastMonophonicFrequencyHz: number | null = null
 
 	constructor(
 		options: {
@@ -35,6 +37,7 @@ export class PrimitiveSynth {
 			playbackMode?: SynthPlaybackMode
 			filterEnvelopeSettings?: FilterEnvelopeSettings
 			effectsSettings?: EffectsSettings
+			portamentoSeconds?: number
 			createAudioContext?: () => AudioContext | null
 			onStateChange?: (state: 'ready' | 'playing' | 'releasing' | 'unsupported') => void
 			scheduleTimeout?: (callback: () => void, delayMs: number) => number
@@ -49,6 +52,7 @@ export class PrimitiveSynth {
 		this.playbackMode = options.playbackMode ?? 'raw'
 		this.filterEnvelopeSettings = this.normalizeFilterEnvelopeSettings(options.filterEnvelopeSettings ?? this.createDefaultFilterEnvelopeSettings())
 		this.effectsSettings = this.normalizeEffectsSettings(options.effectsSettings ?? this.createDefaultEffectsSettings())
+		this.portamentoSeconds = this.normalizePortamentoSeconds(options.portamentoSeconds ?? 0)
 		this.createAudioContext = options.createAudioContext ?? (() => this.createBrowserAudioContext())
 		this.onStateChange = options.onStateChange ?? null
 		this.scheduleTimeout = options.scheduleTimeout ?? ((callback, delayMs) => globalThis.setTimeout(callback, delayMs))
@@ -58,6 +62,11 @@ export class PrimitiveSynth {
 	@Spec('Switches the synth between monophonic note selection and polyphonic chord playback.')
 	setMonophonic(isMonophonic: boolean) {
 		this.isMonophonic = isMonophonic
+	}
+
+	@Spec('Updates the monophonic glide time used when one held note hands off to another.')
+	setPortamentoSeconds(portamentoSeconds: number) {
+		this.portamentoSeconds = this.normalizePortamentoSeconds(portamentoSeconds)
 	}
 
 	@Spec('Switches the synth between raw playback, filter-envelope playback, and damped pluck playback.')
@@ -205,6 +214,9 @@ export class PrimitiveSynth {
 
 	@Spec('Applies the requested target note set by retiring stale voices and starting any missing ones with the currently selected playback mode.')
 	private applyTargetFrequencies(targetFrequencies: number[], audioContext: AudioContext) {
+		if (this.tryRetuneMonophonicVoice(targetFrequencies, audioContext)) {
+			return
+		}
 		const targetFrequencyKeys = new Set(targetFrequencies.map((frequencyHz) => this.formatFrequencyKey(frequencyHz)))
 		for (const [frequencyKey, voice] of this.activeVoicesByFrequencyKey.entries()) {
 			if (targetFrequencyKeys.has(frequencyKey)) {
@@ -223,7 +235,7 @@ export class PrimitiveSynth {
 			const oscillator = audioContext.createOscillator()
 			const voiceNodes = this.createVoiceNodes(audioContext, frequencyHz)
 			this.configureOscillatorWaveform(oscillator, audioContext)
-			oscillator.frequency.value = frequencyHz
+			this.scheduleOscillatorFrequencyStart(oscillator, frequencyHz, audioContext.currentTime)
 			voiceNodes.gainNode.gain.cancelScheduledValues(audioContext.currentTime)
 			voiceNodes.gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime)
 			this.scheduleGainEnvelope(voiceNodes.gainNode, audioContext.currentTime)
@@ -399,6 +411,66 @@ export class PrimitiveSynth {
 	@Spec('Formats one frequency as a stable key so the synth can track active voices across note syncs.')
 	private formatFrequencyKey(frequencyHz: number): string {
 		return frequencyHz.toFixed(6)
+	}
+
+	@Spec('Clamps one requested portamento duration so monophonic retuning stays within a stable musical range.')
+	private normalizePortamentoSeconds(portamentoSeconds: number): number {
+		return Math.max(0, Math.min(1, portamentoSeconds))
+	}
+
+	@Spec('Starts one new oscillator either directly at its target pitch or from the remembered monophonic pitch when portamento should glide from the last played note.')
+	private scheduleOscillatorFrequencyStart(oscillator: OscillatorNode, targetFrequencyHz: number, startTime: number) {
+		const startFrequencyHz = this.getPortamentoStartFrequencyHz(targetFrequencyHz)
+		oscillator.frequency.cancelScheduledValues(startTime)
+		oscillator.frequency.setValueAtTime(startFrequencyHz, startTime)
+		if (startFrequencyHz !== targetFrequencyHz && this.portamentoSeconds > 0) {
+			oscillator.frequency.linearRampToValueAtTime(targetFrequencyHz, startTime + this.portamentoSeconds)
+		}
+		this.lastMonophonicFrequencyHz = targetFrequencyHz
+	}
+
+	@Spec('Chooses the pitch a fresh monophonic note should glide from so released notes can still leave a remembered starting point like a classic monosynth.')
+	private getPortamentoStartFrequencyHz(targetFrequencyHz: number): number {
+		if (this.isMonophonic === false || this.portamentoSeconds === 0) {
+			return targetFrequencyHz
+		}
+		if (this.lastMonophonicFrequencyHz === null) {
+			return targetFrequencyHz
+		}
+		return this.lastMonophonicFrequencyHz
+	}
+
+	@Spec('Retunes the single active monophonic voice in place when only its target pitch changes.')
+	private tryRetuneMonophonicVoice(targetFrequencies: number[], audioContext: AudioContext): boolean {
+		if (this.isMonophonic === false || targetFrequencies.length !== 1 || this.activeVoicesByFrequencyKey.size !== 1) {
+			return false
+		}
+		const [currentFrequencyKey, voice] = Array.from(this.activeVoicesByFrequencyKey.entries())[0] ?? []
+		if (voice === undefined || currentFrequencyKey === undefined) {
+			return false
+		}
+		const nextFrequencyHz = targetFrequencies[0] ?? voice.frequencyHz
+		const nextFrequencyKey = this.formatFrequencyKey(nextFrequencyHz)
+		this.lastMonophonicFrequencyHz = nextFrequencyHz
+		if (currentFrequencyKey === nextFrequencyKey) {
+			this.emitStateChange('playing')
+			return true
+		}
+		voice.oscillator.frequency.cancelScheduledValues(audioContext.currentTime)
+		voice.oscillator.frequency.setValueAtTime(voice.oscillator.frequency.value, audioContext.currentTime)
+		if (this.portamentoSeconds === 0) {
+			voice.oscillator.frequency.setValueAtTime(nextFrequencyHz, audioContext.currentTime)
+		} else {
+			voice.oscillator.frequency.linearRampToValueAtTime(nextFrequencyHz, audioContext.currentTime + this.portamentoSeconds)
+		}
+		voice.frequencyHz = nextFrequencyHz
+		if (voice.filterNode !== null && voice.playbackMode === 'pluck') {
+			voice.filterNode.frequency.value = this.calculatePluckSettledCutoffHz(nextFrequencyHz)
+		}
+		this.activeVoicesByFrequencyKey.delete(currentFrequencyKey)
+		this.activeVoicesByFrequencyKey.set(nextFrequencyKey, voice)
+		this.emitStateChange('playing')
+		return true
 	}
 
 	@Spec('Returns the release fade duration that best matches one voice based on how it was created.')

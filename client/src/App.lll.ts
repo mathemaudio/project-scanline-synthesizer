@@ -37,6 +37,8 @@ export class App extends LitElement {
 	public keyboardBaseOctave: number = 2
 	@state()
 	public isMonophonic: boolean = false
+	@state()
+	public portamentoMs: number = 50
 
 	@state()
 	public soundingVoiceCount: number = 0
@@ -125,6 +127,7 @@ export class App extends LitElement {
 			delayFeedback: 0.24,
 			delayTimeMs: 280
 		},
+		portamentoSeconds: 0.05,
 		onStateChange: (state) => this.onSynthStateChange(state)
 	})
 
@@ -199,6 +202,17 @@ export class App extends LitElement {
 		await this.synth.syncNotes(heldPitches.map((pitch) => pitch.frequencyHz))
 		this.updateSoundingVoiceCount(heldPitches)
 		this.refreshVisibleStatusText()
+	}
+
+	@Spec('Applies the visible monophonic portamento slider and forwards the glide time to the synth engine in seconds.')
+	private onPortamentoInput(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null
+		const nextValue = Number(input?.value ?? '0')
+		if (Number.isFinite(nextValue) === false) {
+			return
+		}
+		this.portamentoMs = Math.max(0, Math.min(1000, nextValue))
+		this.synth.setPortamentoSeconds(this.portamentoMs / 1000)
 	}
 
 	@Spec('Switches the playback-shaping mode from the radio selector and rebuilds any held notes so the new routing is heard immediately.')
@@ -552,11 +566,9 @@ export class App extends LitElement {
 		this.uploadedImageUrl = null
 	}
 
-	@Spec('Returns the compact help sentence shown under the smaller monophonic toggle card.')
-	private getMonophonicHelpText(): string {
-		return this.isMonophonic
-			? 'On makes the synth follow only the newest held pitch.'
-			: 'Off keeps every unique held pitch sounding polyphonically.'
+	@Spec('Returns the visible portamento value label shown beside the monophonic glide slider.')
+	private getPortamentoValueLabel(): string {
+		return `${this.portamentoMs} ms`
 	}
 
 	@Spec('Returns the visible playback-mode label used in the right-side settings panel and compact summaries.')
@@ -647,7 +659,22 @@ export class App extends LitElement {
 								<span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
 							</span>
 						</div>
-						<div id="voice-mode-help" class="switch-detail">${this.getMonophonicHelpText()}</div>
+						<div class="setting-control switch-setting-control">
+							<div class="setting-label-row">
+								<div class="switch-label">Portamento</div>
+								<div id="portamento-value" class="setting-value">${this.getPortamentoValueLabel()}</div>
+							</div>
+							<input
+								id="portamento-slider"
+								class="settings-slider"
+								type="range"
+								min="0"
+								max="1000"
+								step="1"
+								.value=${String(this.portamentoMs)}
+								@input=${this.onPortamentoInput}
+							/>
+						</div>
 					</label>
 					<section class="mode-selector-card" aria-label="Playback mode selector">
 						<div class="switch-label">Playback mode</div>
