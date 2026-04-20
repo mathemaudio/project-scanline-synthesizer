@@ -429,9 +429,9 @@ export class PrimitiveSynth {
 		this.lastMonophonicFrequencyHz = targetFrequencyHz
 	}
 
-	@Spec('Chooses the pitch a fresh monophonic note should glide from so released notes can still leave a remembered starting point like a classic monosynth.')
+	@Spec('Chooses the pitch a fresh note should glide from so portamento can remain active whenever a remembered prior pitch exists.')
 	private getPortamentoStartFrequencyHz(targetFrequencyHz: number): number {
-		if (this.isMonophonic === false || this.portamentoSeconds === 0) {
+		if (this.portamentoSeconds === 0) {
 			return targetFrequencyHz
 		}
 		if (this.lastMonophonicFrequencyHz === null) {

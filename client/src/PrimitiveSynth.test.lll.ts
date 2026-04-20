@@ -121,6 +121,32 @@ export class PrimitiveSynthTest {
 		return { restartVoiceCount, restartStartHz, rampTargetHz }
 	}
 
+	@Scenario('polyphonic portamento also glides fresh notes from the most recently played pitch')
+	static async glidesFreshPolyphonicNoteFromRememberedPitch(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ activeVoiceCount: number, secondNoteStartHz: number, secondNoteRampTargetHz: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			monophonic: false,
+			portamentoSeconds: 0.2,
+			createAudioContext: () => fakeAudioContext
+		})
+
+		await synth.syncNotes([261.625565])
+		await waitFor(() => synth.getActiveVoiceCount() === 1, 'Expected the first polyphonic note to start one active voice')
+		await synth.syncNotes([261.625565, 329.627557])
+		await waitFor(() => synth.getActiveVoiceCount() === 2, 'Expected adding a second polyphonic note to keep both voices active')
+		const activeVoiceCount = synth.getActiveVoiceCount()
+		const secondNoteStartHz = (fakeAudioContext as unknown as { lastFrequencySetValue: number }).lastFrequencySetValue
+		const secondNoteRampTargetHz = (fakeAudioContext as unknown as { lastFrequencyRampTarget: number }).lastFrequencyRampTarget
+
+		assert(activeVoiceCount === 2, 'Expected two active voices after adding a second polyphonic note')
+		assert(Math.abs(secondNoteStartHz - 261.625565) < 0.000001, 'Expected the new polyphonic voice to start from the most recently played pitch when portamento is enabled')
+		assert(Math.abs(secondNoteRampTargetHz - 329.627557) < 0.000001, 'Expected the new polyphonic voice to ramp toward its target pitch when portamento is enabled')
+		return { activeVoiceCount, secondNoteStartHz, secondNoteRampTargetHz }
+	}
+
 	@Scenario('uploaded waveform samples switch oscillators away from the default sine type')
 	static async usesPeriodicWaveWhenImageSamplesAreProvided(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, oscillatorType: string, periodicWaveCallCount: number }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
