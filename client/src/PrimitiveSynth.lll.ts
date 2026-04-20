@@ -247,7 +247,7 @@ export class PrimitiveSynth {
 	@Spec('Builds the audio-node chain for one voice according to the active playback mode.')
 	private createVoiceNodes(audioContext: AudioContext, frequencyHz: number): { gainNode: GainNode, filterNode: BiquadFilterNode | null, inputNode: AudioNode, outputNode: AudioNode } {
 		const gainNode = audioContext.createGain()
-		if (this.playbackMode === 'raw' || this.playbackMode === 'effects') {
+		if (this.playbackMode === 'raw') {
 			return {
 				gainNode,
 				filterNode: null,
@@ -409,18 +409,11 @@ export class PrimitiveSynth {
 		if (voice.playbackMode === 'pluck') {
 			return Math.max(this.releaseDurationSeconds, 0.18)
 		}
-		if (voice.playbackMode === 'effects') {
-			return Math.max(this.releaseDurationSeconds, 0.24)
-		}
 		return this.releaseDurationSeconds
 	}
 
-	@Spec('Routes one voice output either directly to the destination or through the shared chorus and delay buses for effects mode.')
+	@Spec('Routes one voice output to the destination and also through the shared chorus and delay buses so effects stay global across playback modes.')
 	private connectVoiceOutput(outputNode: AudioNode, audioContext: AudioContext) {
-		if (this.playbackMode !== 'effects') {
-			outputNode.connect(audioContext.destination)
-			return
-		}
 		const chorusInputNode = this.ensureChorusInputNode(audioContext)
 		const delayInputNode = this.ensureDelayInputNode(audioContext)
 		outputNode.connect(audioContext.destination)

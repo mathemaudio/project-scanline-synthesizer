@@ -171,7 +171,7 @@ export class AppTest {
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
 			await app.updateComplete
 
-			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Pluck', 'Expected the right-side playback settings panel to switch to Pluck')
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Pluck', 'Expected the playback settings panel to switch to Pluck')
 			await waitFor(() => this.readText(app, '#active-key-value') === 'Q', 'Expected keyboard play to remain active after switching playback mode')
 			const playbackMode = this.readText(app, '#playback-mode-value')
 			const noteState = this.readText(app, '#note-state-value')
@@ -185,6 +185,52 @@ export class AppTest {
 			return { playbackMode, noteState, activeKey, panelCopy }
 		} finally {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+		}
+	}
+
+	@Scenario('effects settings stay visible below playback settings for every playback mode')
+	static async showsAlwaysOnEffectsPanelAcrossPlaybackModes(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ rawLabel: string, cutoffLabel: string, pluckLabel: string, effectsCopy: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const rawRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-raw')
+			const cutoffRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-cutoff')
+			const pluckRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-pluck')
+			assert(rawRadio !== null && rawRadio !== undefined, 'Expected raw playback radio button to exist')
+			assert(cutoffRadio !== null && cutoffRadio !== undefined, 'Expected cutoff playback radio button to exist')
+			assert(pluckRadio !== null && pluckRadio !== undefined, 'Expected pluck playback radio button to exist')
+
+			rawRadio.checked = true
+			rawRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Raw', 'Expected playback settings label to switch to Raw')
+			const rawLabel = this.readText(app, '#effects-panel-value')
+
+			cutoffRadio.checked = true
+			cutoffRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Cutoff', 'Expected playback settings label to switch to Cutoff')
+			const cutoffLabel = this.readText(app, '#effects-panel-value')
+
+			pluckRadio.checked = true
+			pluckRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Pluck', 'Expected playback settings label to switch to Pluck')
+			const pluckLabel = this.readText(app, '#effects-panel-value')
+			const effectsCopy = this.readText(app, '#effects-settings-mode-copy')
+
+			assert(rawLabel === 'Always on', 'Expected effects panel to stay visible in raw mode')
+			assert(cutoffLabel === 'Always on', 'Expected effects panel to stay visible in cutoff mode')
+			assert(pluckLabel === 'Always on', 'Expected effects panel to stay visible in pluck mode')
+			assert(effectsCopy.includes('applied across raw, cutoff, and pluck'), 'Expected effects copy to explain that effects stay active across all playback modes')
+			return { rawLabel, cutoffLabel, pluckLabel, effectsCopy }
+		} finally {
 			if (originalAudioContext === undefined) {
 				delete (globalThis as Record<string, unknown>)['AudioContext']
 			} else {
@@ -600,6 +646,25 @@ export class AppTest {
 					connect: () => { },
 					disconnect: () => { }
 				} as unknown as BiquadFilterNode
+			}
+			createDelay(): DelayNode {
+				const delayTime = {
+					value: 0,
+					cancelScheduledValues: () => { },
+					setValueAtTime(value: number) {
+						this.value = value
+						return this
+					},
+					linearRampToValueAtTime(value: number) {
+						this.value = value
+						return this
+					}
+				}
+				return {
+					delayTime: delayTime as unknown as AudioParam,
+					connect: () => { },
+					disconnect: () => { }
+				} as unknown as DelayNode
 			}
 			createOscillator(): OscillatorNode {
 				const oscillator = {

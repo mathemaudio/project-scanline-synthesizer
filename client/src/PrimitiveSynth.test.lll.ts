@@ -138,6 +138,36 @@ export class PrimitiveSynthTest {
 		return { didStart, activeVoiceCount, filterCount, resonance }
 	}
 
+	@Scenario('raw playback still routes through shared effects buses when chorus and delay are configured')
+	static async routesRawPlaybackThroughAlwaysOnEffects(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, gainCount: number, delayCount: number, activeVoiceCount: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			playbackMode: 'raw',
+			effectsSettings: {
+				chorusMix: 0.22,
+				chorusFeedback: 0.08,
+				chorusDepthMs: 8,
+				delayMix: 0.18,
+				delayFeedback: 0.24,
+				delayTimeMs: 280
+			},
+			createAudioContext: () => fakeAudioContext
+		})
+
+		const didStart = await synth.startNote(261.625565)
+		const gainCount = (fakeAudioContext as unknown as { gainCount: number }).gainCount
+		const delayCount = (fakeAudioContext as unknown as { delayCount: number }).delayCount
+		const activeVoiceCount = synth.getActiveVoiceCount()
+
+		assert(didStart === true, 'Expected raw playback with always-on effects to start successfully with a fake audio context')
+		assert(gainCount >= 5, 'Expected always-on effects routing to allocate additional gain nodes for chorus and delay sends')
+		assert(delayCount >= 2, 'Expected always-on effects routing to allocate both chorus and delay delay-nodes')
+		assert(activeVoiceCount === 1, 'Expected one active voice after starting one raw note with always-on effects')
+		return { didStart, gainCount, delayCount, activeVoiceCount }
+	}
+
 	@Scenario('pluck playback mode rebuilds held notes while staying on one active voice')
 	static async rebuildsHeldVoiceForPluckMode(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ rebuilt: boolean, activeVoiceCount: number, filterCount: number, oscillatorType: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -219,6 +249,8 @@ export class PrimitiveSynthTest {
 			lastOscillatorType: 'sine',
 			periodicWaveCallCount: 0,
 			filterCount: 0,
+			gainCount: 0,
+			delayCount: 0,
 			lastFilterQ: 0,
 			state: 'running',
 			currentTime: 0,
@@ -247,6 +279,14 @@ export class PrimitiveSynthTest {
 					disconnect: () => {}
 				} as unknown as BiquadFilterNode
 			},
+			createDelay() {
+				fakeAudioContext.delayCount += 1
+				return {
+					delayTime: createGainParam(),
+					connect: () => {},
+					disconnect: () => {}
+				} as unknown as DelayNode
+			},
 			createOscillator() {
 				const oscillator = {
 					type: 'sine',
@@ -268,11 +308,14 @@ export class PrimitiveSynthTest {
 				}
 				return oscillator as unknown as OscillatorNode
 			},
-			createGain: () => ({
-				gain: createGainParam(),
-				connect: () => {},
-				disconnect: () => {}
-			}) as unknown as GainNode
+			createGain: () => {
+				fakeAudioContext.gainCount += 1
+				return {
+					gain: createGainParam(),
+					connect: () => {},
+					disconnect: () => {}
+				} as unknown as GainNode
+			}
 		}
 		return fakeAudioContext as unknown as AudioContext
 	}

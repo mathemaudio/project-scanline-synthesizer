@@ -1,1 +1,1 @@
-export type SynthPlaybackMode = 'raw' | 'cutoff' | 'pluck' | 'effects'
+export type SynthPlaybackMode = 'raw' | 'cutoff' | 'pluck'

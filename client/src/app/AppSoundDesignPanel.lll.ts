@@ -2,7 +2,7 @@ import { Spec } from '@shared/lll.lll'
 import { html, type TemplateResult } from 'lit'
 import type { App } from '../App.lll'
 
-@Spec('Builds the playback settings panel for Scanline Synth, including cutoff, chorus, and delay controls.')
+@Spec('Builds the playback settings and always-on effects panels for Scanline Synth.')
 export class AppSoundDesignPanel {
 	private readonly source: App
 
@@ -11,7 +11,7 @@ export class AppSoundDesignPanel {
 		this.source = source
 	}
 
-	@Spec('Renders one labeled effects slider row for the chorus and delay controls shown in effects mode.')
+	@Spec('Renders one labeled effects slider row for the chorus and delay controls shown in the always-on effects panel.')
 	public renderEffectsSettingSlider(inputId: string, label: string, name: string, value: number, min: number, max: number, step: number, valueSuffix: string): TemplateResult {
 			return html`
 				<label class="setting-control" for=${inputId}>
@@ -36,8 +36,32 @@ export class AppSoundDesignPanel {
 		}
 
 
-	@Spec('Renders the right-side playback settings panel so cutoff controls appear in the formerly empty area beside the main panel.')
+	@Spec('Renders the right-side playback settings panel followed by an always-on effects panel below it.')
 	public renderSoundDesignPanel(): TemplateResult {
+			return html`
+				${this.renderPlaybackSettingsPanel()}
+				<section class="sound-design-card" aria-label="Effects settings panel">
+					<div class="sound-design-header">
+						<div class="status-label">Effects</div>
+						<div id="effects-panel-value" class="plate-value">Always on</div>
+					</div>
+					<div id="effects-settings-mode-copy" class="panel-copy">Chorus and delay are applied across raw, cutoff, and pluck playback with one shared always-on effects block.</div>
+					<div id="effects-chorus-summary" class="settings-summary">Chorus · ${this.source.chorusMixPercent}% mix · ${this.source.chorusFeedbackPercent}% feedback · ${this.source.chorusDepthMs} ms depth</div>
+					<div id="effects-delay-summary" class="settings-summary">Delay · ${this.source.delayMixPercent}% mix · ${this.source.delayFeedbackPercent}% feedback · ${this.source.delayTimeMs} ms time</div>
+					<div class="settings-grid">
+						${this.renderEffectsSettingSlider('chorus-mix-slider', 'Chorus mix', 'chorus-mix-percent', this.source.chorusMixPercent, 0, 80, 1, '%')}
+						${this.renderEffectsSettingSlider('chorus-feedback-slider', 'Chorus feedback', 'chorus-feedback-percent', this.source.chorusFeedbackPercent, 0, 75, 1, '%')}
+						${this.renderEffectsSettingSlider('chorus-depth-slider', 'Chorus depth', 'chorus-depth-ms', this.source.chorusDepthMs, 1, 30, 1, ' ms')}
+						${this.renderEffectsSettingSlider('delay-mix-slider', 'Delay mix', 'delay-mix-percent', this.source.delayMixPercent, 0, 80, 1, '%')}
+						${this.renderEffectsSettingSlider('delay-feedback-slider', 'Delay feedback', 'delay-feedback-percent', this.source.delayFeedbackPercent, 0, 85, 1, '%')}
+						${this.renderEffectsSettingSlider('delay-time-slider', 'Delay time', 'delay-time-ms', this.source.delayTimeMs, 40, 900, 5, ' ms')}
+					</div>
+				</section>
+			`
+		}
+
+	@Spec('Renders only the playback settings card that corresponds to the currently selected raw, cutoff, or pluck mode.')
+	public renderPlaybackSettingsPanel(): TemplateResult {
 			if (this.source.playbackMode === 'cutoff') {
 				return html`
 					<section class="sound-design-card" aria-label="Playback settings panel">
@@ -60,29 +84,7 @@ export class AppSoundDesignPanel {
 					</section>
 				`
 			}
-	
-			if (this.source.playbackMode === 'effects') {
-				return html`
-					<section class="sound-design-card" aria-label="Playback settings panel">
-						<div class="sound-design-header">
-							<div class="status-label">Playback settings</div>
-							<div id="playback-mode-value" class="plate-value">${this.source.getPlaybackModeLabel()}</div>
-						</div>
-						<div id="playback-settings-mode-copy" class="panel-copy">Raw waveform playback with shared chorus width and delay ambience using practical Web Audio controls.</div>
-						<div id="effects-chorus-summary" class="settings-summary">Chorus · ${this.source.chorusMixPercent}% mix · ${this.source.chorusFeedbackPercent}% feedback · ${this.source.chorusDepthMs} ms depth</div>
-						<div id="effects-delay-summary" class="settings-summary">Delay · ${this.source.delayMixPercent}% mix · ${this.source.delayFeedbackPercent}% feedback · ${this.source.delayTimeMs} ms time</div>
-						<div class="settings-grid">
-							${this.renderEffectsSettingSlider('chorus-mix-slider', 'Chorus mix', 'chorus-mix-percent', this.source.chorusMixPercent, 0, 80, 1, '%')}
-							${this.renderEffectsSettingSlider('chorus-feedback-slider', 'Chorus feedback', 'chorus-feedback-percent', this.source.chorusFeedbackPercent, 0, 75, 1, '%')}
-							${this.renderEffectsSettingSlider('chorus-depth-slider', 'Chorus depth', 'chorus-depth-ms', this.source.chorusDepthMs, 1, 30, 1, ' ms')}
-							${this.renderEffectsSettingSlider('delay-mix-slider', 'Delay mix', 'delay-mix-percent', this.source.delayMixPercent, 0, 80, 1, '%')}
-							${this.renderEffectsSettingSlider('delay-feedback-slider', 'Delay feedback', 'delay-feedback-percent', this.source.delayFeedbackPercent, 0, 85, 1, '%')}
-							${this.renderEffectsSettingSlider('delay-time-slider', 'Delay time', 'delay-time-ms', this.source.delayTimeMs, 40, 900, 5, ' ms')}
-						</div>
-					</section>
-				`
-			}
-	
+
 			if (this.source.playbackMode === 'pluck') {
 				return html`
 					<section class="sound-design-card" aria-label="Playback settings panel">
@@ -95,7 +97,7 @@ export class AppSoundDesignPanel {
 					</section>
 				`
 			}
-	
+
 			return html`
 				<section class="sound-design-card" aria-label="Playback settings panel">
 					<div class="sound-design-header">

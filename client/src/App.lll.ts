@@ -203,7 +203,7 @@ export class App extends LitElement {
 	private async onPlaybackModeChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const nextPlaybackMode = input?.value
-		if (nextPlaybackMode !== 'raw' && nextPlaybackMode !== 'cutoff' && nextPlaybackMode !== 'pluck' && nextPlaybackMode !== 'effects') {
+		if (nextPlaybackMode !== 'raw' && nextPlaybackMode !== 'cutoff' && nextPlaybackMode !== 'pluck') {
 			return
 		}
 		this.playbackMode = nextPlaybackMode
@@ -320,10 +320,6 @@ export class App extends LitElement {
 				this.noteDetailText = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
 				return
 			}
-			if (this.playbackMode === 'effects') {
-				this.noteDetailText = 'Effects mode is armed. New notes play dry while shared chorus width and tempo-free delay add space behind the active waveform.'
-				return
-			}
 			if (this.playbackMode === 'pluck') {
 				this.noteDetailText = 'Pluck mode is armed. New notes start bright, then damp quickly toward a softer string-like tone.'
 				return
@@ -341,13 +337,6 @@ export class App extends LitElement {
 				this.noteDetailText = activePitch === null
 					? 'The filter ADSR is ready to open and settle the low-pass cutoff on the next played note.'
 					: `${activePitch.noteLabel} is playing through the cutoff mode. The filter opens quickly, then settles into its sustain cutoff while the note stays held.`
-				return
-			}
-			if (this.playbackMode === 'effects') {
-				this.noteStateLabel = 'Playing'
-				this.noteDetailText = activePitch === null
-					? 'Effects mode is ready with subtle chorus spread and a short echo tail.'
-					: `${activePitch.noteLabel} is playing through chorus and delay, adding width first and then a spacious repeat behind the note.`
 				return
 			}
 			if (this.playbackMode === 'pluck') {
@@ -376,10 +365,6 @@ export class App extends LitElement {
 			this.noteStateLabel = 'Releasing'
 			if (this.playbackMode === 'cutoff') {
 				this.noteDetailText = 'All held keys are up, so the filtered voice is fading out while the cutoff closes back toward its base position.'
-				return
-			}
-			if (this.playbackMode === 'effects') {
-				this.noteDetailText = 'All held keys are up, so the dry note is fading while the chorus width and delay tail decay behind it.'
 				return
 			}
 			if (this.playbackMode === 'pluck') {
@@ -569,9 +554,6 @@ export class App extends LitElement {
 		if (this.playbackMode === 'cutoff') {
 			return 'Cutoff'
 		}
-		if (this.playbackMode === 'effects') {
-			return 'Effects'
-		}
 		if (this.playbackMode === 'pluck') {
 			return 'Pluck'
 		}
@@ -582,9 +564,6 @@ export class App extends LitElement {
 	public getEnvelopeSummary(): string {
 		if (this.playbackMode === 'cutoff') {
 			return `${this.filterAttackMs} ms A · ${this.filterDecayMs} ms D · ${this.filterSustainPercent}% S · ${this.filterReleaseMs} ms R`
-		}
-		if (this.playbackMode === 'effects') {
-			return `Chorus ${this.chorusMixPercent}% · Delay ${this.delayTimeMs} ms`
 		}
 		if (this.playbackMode === 'pluck') {
 			return 'Fast pluck decay · damped filter'
@@ -656,7 +635,6 @@ export class App extends LitElement {
 							${this.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
 							${this.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
 							${this.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
-							${this.renderPlaybackModeOption('effects', 'Effects', 'Chorus + delay')}
 						</div>
 					</section>
 				</section>
