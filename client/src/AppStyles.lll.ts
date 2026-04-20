@@ -58,6 +58,7 @@ export class AppStyles {
 		header,
 		.keyboard-guide,
 		.status-grid,
+		.status-table,
 		.status-upload-layout,
 		.mode-section,
 		.mode-selector-card,
@@ -204,15 +205,46 @@ export class AppStyles {
 		}
 
 		.status-grid {
-			grid-template-columns: repeat(2, minmax(140px, 1fr));
+			grid-template-columns: minmax(0, 1fr);
 			gap: 12px;
 		}
 
-		.status-card {
-			gap: 8px;
+		.status-table-card {
+			display: grid;
 			padding: 14px 16px;
-			min-height: 84px;
-			align-content: center;
+			border-radius: 18px;
+			background:
+				linear-gradient(180deg, rgba(255, 247, 234, 0.04), rgba(0, 0, 0, 0.14)),
+				linear-gradient(135deg, rgba(80, 62, 49, 0.94), rgba(46, 35, 28, 0.96));
+			border: 1px solid rgba(255, 225, 173, 0.12);
+			box-shadow:
+				inset 0 1px 0 rgba(255, 248, 230, 0.06),
+				0 10px 18px rgba(0, 0, 0, 0.18);
+		}
+
+		.status-table {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px 14px;
+		}
+
+		.status-table-row {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: baseline;
+			gap: 12px;
+			padding: 10px 0;
+			border-bottom: 1px solid rgba(255, 225, 173, 0.08);
+		}
+
+		.status-table-row-wide {
+			grid-column: 1 / -1;
+			grid-template-columns: minmax(90px, 110px) minmax(0, 1fr);
+			align-items: start;
+		}
+
+		.status-table-row:last-child,
+		.status-table-row:nth-last-child(2):not(.status-table-row-wide) {
+			border-bottom: none;
 		}
 
 		.status-value,
@@ -401,6 +433,10 @@ export class AppStyles {
 			min-height: 100%;
 		}
 
+		.sound-design-card-effects {
+			margin-top: -4px;
+		}
+
 		.panel-copy,
 		.settings-empty,
 		.settings-summary {
@@ -474,8 +510,15 @@ export class AppStyles {
 				grid-template-columns: 1fr;
 			}
 
-			.status-grid {
+			.status-table {
 				grid-template-columns: 1fr;
+			}
+
+			.status-table-row,
+			.status-table-row-wide {
+				grid-column: auto;
+				grid-template-columns: minmax(0, 1fr);
+				gap: 4px;
 			}
 
 			:host {

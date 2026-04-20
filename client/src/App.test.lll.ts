@@ -194,7 +194,7 @@ export class AppTest {
 	}
 
 	@Scenario('effects settings stay visible below playback settings for every playback mode')
-	static async showsAlwaysOnEffectsPanelAcrossPlaybackModes(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ rawLabel: string, cutoffLabel: string, pluckLabel: string, effectsCopy: string }> {
+	static async showsAlwaysOnEffectsPanelAcrossPlaybackModes(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ rawLabel: string, cutoffLabel: string, pluckLabel: string, chorusLabel: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -223,13 +223,13 @@ export class AppTest {
 			pluckRadio.dispatchEvent(new Event('change', { bubbles: true }))
 			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Pluck', 'Expected playback settings label to switch to Pluck')
 			const pluckLabel = this.readText(app, '#effects-panel-value')
-			const effectsCopy = this.readText(app, '#effects-settings-mode-copy')
+			const chorusLabel = app.shadowRoot?.querySelector('.settings-grid .setting-control .status-label')?.textContent?.trim() ?? ''
 
 			assert(rawLabel === 'Always on', 'Expected effects panel to stay visible in raw mode')
 			assert(cutoffLabel === 'Always on', 'Expected effects panel to stay visible in cutoff mode')
 			assert(pluckLabel === 'Always on', 'Expected effects panel to stay visible in pluck mode')
-			assert(effectsCopy.includes('applied across raw, cutoff, and pluck'), 'Expected effects copy to explain that effects stay active across all playback modes')
-			return { rawLabel, cutoffLabel, pluckLabel, effectsCopy }
+			assert(chorusLabel === 'Chorus mix', 'Expected effects controls to remain visible below playback settings across modes')
+			return { rawLabel, cutoffLabel, pluckLabel, chorusLabel }
 		} finally {
 			if (originalAudioContext === undefined) {
 				delete (globalThis as Record<string, unknown>)['AudioContext']
@@ -240,7 +240,7 @@ export class AppTest {
 	}
 
 	@Scenario('uploading an image activates an image row waveform and exposes the row selector')
-	static async showsImageRowWaveformControlsAfterUpload(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ uploadedImageName: string, waveform: string, rowValue: string, waveformDetail: string }> {
+	static async showsImageRowWaveformControlsAfterUpload(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ uploadedImageName: string, waveform: string, rowValue: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -267,17 +267,15 @@ export class AppTest {
 			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
 			await app.updateComplete
 
-			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Image row'), 'Expected an uploaded image row waveform to become active')
+			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Row '), 'Expected an uploaded image row waveform to become active')
 			const uploadedImageName = this.readText(app, '#uploaded-image-name')
 			const waveform = this.readText(app, '#waveform-value')
 			const rowValue = this.readText(app, '#waveform-row-value')
-			const waveformDetail = this.readText(app, '#waveform-detail-text')
 
 			assert(uploadedImageName === 'panel-reference.svg', 'Expected uploaded image file name to be shown')
-			assert(waveform.startsWith('Image row'), 'Expected waveform card to switch from Sine to an uploaded image row')
+			assert(waveform.startsWith('Row '), 'Expected waveform card to switch from Sine to a compact uploaded row label')
 			assert(rowValue.includes('of 2'), 'Expected row selector to reveal two loaded rows from the canvas image')
-			assert(waveformDetail.includes('image loaded'), 'Expected waveform detail text to describe the loaded image dimensions')
-			return { uploadedImageName, waveform, rowValue, waveformDetail }
+			return { uploadedImageName, waveform, rowValue }
 		} finally {
 			this.restoreCanvasTestDouble()
 			if (originalAudioContext === undefined) {
@@ -301,7 +299,7 @@ export class AppTest {
 	}
 
 	@Scenario('loop crossfade defaults to zero percent and the waveform preview shows three cycles')
-	static async showsLoopCrossfadeControlAndThreeCyclePreview(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ crossfadeValue: string, previewMeta: string, canvasWidth: number, canvasHeight: number, waveformDetail: string }> {
+	static async showsLoopCrossfadeControlAndThreeCyclePreview(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ crossfadeValue: string, previewMeta: string, canvasWidth: number, canvasHeight: number }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -326,20 +324,18 @@ export class AppTest {
 			})
 			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
 			await app.updateComplete
-			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Image row'), 'Expected an uploaded image row waveform to become active before inspecting the new preview controls')
+			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Row '), 'Expected an uploaded image row waveform to become active before inspecting the new preview controls')
 			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('0%'), 'Expected the new loop crossfade control to default to zero percent')
 
 			const crossfadeValue = this.readText(app, '#waveform-crossfade-value')
 			const previewMeta = this.readTextFromShadowHost(app, 'image-waveform-preview', '#waveform-preview-meta')
 			const previewCanvas = app.shadowRoot?.querySelector('image-waveform-preview')?.shadowRoot?.querySelector<HTMLCanvasElement>('#waveform-preview-canvas')
-			const waveformDetail = this.readText(app, '#waveform-detail-text')
 			assert(previewCanvas !== null && previewCanvas !== undefined, 'Expected the three-cycle waveform preview canvas to render after upload')
 			assert(crossfadeValue === '0% seam overlap', 'Expected the loop crossfade value label to default to zero percent')
 			assert(previewMeta.includes('0% loop crossfade'), 'Expected the preview metadata to mention the default loop crossfade amount')
 			assert(previewCanvas.width === 960, 'Expected the selected waveform preview to widen for three cycles')
 			assert(previewCanvas.height === 146, 'Expected the selected waveform preview to become taller for the new three-cycle display')
-			assert(waveformDetail.includes('Loop crossfade 0%'), 'Expected the waveform detail text to describe the default loop crossfade amount')
-			return { crossfadeValue, previewMeta, canvasWidth: previewCanvas.width, canvasHeight: previewCanvas.height, waveformDetail }
+			return { crossfadeValue, previewMeta, canvasWidth: previewCanvas.width, canvasHeight: previewCanvas.height }
 		} finally {
 			this.restoreCanvasTestDouble()
 			if (originalAudioContext === undefined) {
@@ -363,7 +359,7 @@ export class AppTest {
 	}
 
 	@Scenario('moving the loop crossfade slider updates the visible preview seam amount')
-	static async updatesLoopCrossfadePreview(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ crossfadeValue: string, previewMeta: string, waveformDetail: string }> {
+	static async updatesLoopCrossfadePreview(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ crossfadeValue: string, previewMeta: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
 		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
@@ -388,7 +384,7 @@ export class AppTest {
 			})
 			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
 			await app.updateComplete
-			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Image row'), 'Expected an uploaded image row waveform to become active before moving the loop crossfade slider')
+			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Row '), 'Expected an uploaded image row waveform to become active before moving the loop crossfade slider')
 			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('0%'), 'Expected the loop crossfade control to render before adjusting it')
 
 			const crossfadeSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-crossfade-slider')
@@ -400,11 +396,9 @@ export class AppTest {
 
 			const crossfadeValue = this.readText(app, '#waveform-crossfade-value')
 			const previewMeta = this.readTextFromShadowHost(app, 'image-waveform-preview', '#waveform-preview-meta')
-			const waveformDetail = this.readText(app, '#waveform-detail-text')
 			assert(crossfadeValue === '50% seam overlap', 'Expected the loop crossfade value to reflect the slider movement')
 			assert(previewMeta.includes('50% loop crossfade'), 'Expected the selected waveform preview metadata to follow the loop crossfade slider')
-			assert(waveformDetail.includes('Loop crossfade 50%'), 'Expected the waveform detail text to reflect the stronger seam blend')
-			return { crossfadeValue, previewMeta, waveformDetail }
+			return { crossfadeValue, previewMeta }
 		} finally {
 			this.restoreCanvasTestDouble()
 			if (originalAudioContext === undefined) {
@@ -471,7 +465,7 @@ export class AppTest {
 			const activeKey = this.readText(app, '#active-key-value')
 			const noteState = this.readText(app, '#note-state-value')
 
-			assert(waveform === 'Image row 2', 'Expected moving the slider to activate the second image row')
+			assert(waveform === 'Row 2', 'Expected moving the slider to activate the second image row with the compact label')
 			assert(rowValue === 'Row 2 of 2', 'Expected row status text to follow the slider')
 			assert(previewMeta.includes('Row 2 of 2'), 'Expected the visible waveform preview metadata to follow the selected row')
 			assert(previewCanvas !== null && previewCanvas !== undefined, 'Expected the waveform preview canvas to render below the uploaded image')

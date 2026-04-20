@@ -22,7 +22,7 @@ export class App extends LitElement {
 
 	static styles = AppViewStyles.styles
 	@state()
-	public noteStateLabel: string = 'Ready to play'
+	public noteStateLabel: string = 'Ready'
 	@state()
 	private noteDetailText: string = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
 	@state()
@@ -30,7 +30,7 @@ export class App extends LitElement {
 	@state()
 	public activeKeyLabel: string = '—'
 	@state()
-	public pitchLabel: string = 'No active note'
+	public pitchLabel: string = '—'
 	@state()
 	public triggerCount: number = 0
 	@state()
@@ -315,7 +315,7 @@ export class App extends LitElement {
 	private onSynthStateChange(state: 'ready' | 'playing' | 'releasing' | 'unsupported') {
 		this.updateSoundingVoiceCount()
 		if (state === 'ready') {
-			this.noteStateLabel = 'Ready to play'
+			this.noteStateLabel = 'Ready'
 			if (this.playbackMode === 'cutoff') {
 				this.noteDetailText = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
 				return
@@ -386,7 +386,7 @@ export class App extends LitElement {
 		if (activePitch === null) {
 			this.activeKeyLabel = '—'
 			this.activeNoteLabel = '—'
-			this.pitchLabel = 'No active note'
+			this.pitchLabel = '—'
 			return
 		}
 
@@ -487,7 +487,7 @@ export class App extends LitElement {
 		}
 		const processedSamples = this.createCrossfadedWaveformSamples(selectedRow.samples)
 		this.synth.setWaveformSamples(processedSamples)
-		this.waveformLabel = `Image row ${this.selectedRowIndex + 1}`
+		this.waveformLabel = `Row ${this.selectedRowIndex + 1}`
 		this.waveformDetailText = `Uploaded waveform row ${this.selectedRowIndex + 1} of ${this.availableRowCount} is active. Loop crossfade ${this.waveformCrossfadePercent}%. Average brightness ${(selectedRow.averageBrightness * 100).toFixed(1)}%.`
 	}
 
@@ -640,8 +640,6 @@ export class App extends LitElement {
 				</section>
 
 				${this.appSoundDesignPanel.renderStatusUploadPanel()}
-				<section class="detail" id="note-detail-text">${this.noteDetailText}</section>
-				<section class="detail" id="waveform-detail-text">${this.waveformDetailText}</section>
 			</main>
 		`
 	}
