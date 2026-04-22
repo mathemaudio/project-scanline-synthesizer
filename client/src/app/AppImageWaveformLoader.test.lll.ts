@@ -6,8 +6,8 @@ import { AppImageWaveformLoader } from './AppImageWaveformLoader.lll'
 export class AppImageWaveformLoaderTest {
 	testType = 'unit'
 
-	@Scenario('loading the default synthesizer image points the app at karamazov_chart.jpg')
-	static async loadsBundledDefaultImage(subjectFactory: SubjectFactory<AppImageWaveformLoader>, scenario?: ScenarioParameter): Promise<{ uploadedImageUrl: string | null, uploadedImageName: string }> {
+	@Scenario('loading the default synthesizer image points the app at karamazov_chart.jpg and picks a midpoint waveform row')
+	static async loadsBundledDefaultImage(subjectFactory: SubjectFactory<AppImageWaveformLoader>, scenario?: ScenarioParameter): Promise<{ uploadedImageUrl: string | null, uploadedImageName: string, selectedRowIndex: number, waveformLabel: string }> {
 		void subjectFactory
 		const assert: (condition: boolean, message?: string) => asserts condition = scenario?.assert ?? this.failFastAssert
 		const appState = this.createStubAppState()
@@ -17,7 +17,14 @@ export class AppImageWaveformLoaderTest {
 
 		assert(appState.uploadedImageUrl === AppImageWaveformLoader.defaultSynthImageUrl, 'Expected the bundled Karamazov chart path to become the default synth image URL')
 		assert(appState.uploadedImageName === AppImageWaveformLoader.defaultSynthImageName, 'Expected the bundled Karamazov chart file name to be visible by default')
-		return { uploadedImageUrl: appState.uploadedImageUrl, uploadedImageName: appState.uploadedImageName }
+		assert(appState.selectedRowIndex === 2, 'Expected the default waveform row to start near the middle of the loaded image rows')
+		assert(appState.waveformLabel === 'Row 3', 'Expected the midpoint waveform row label to become active by default')
+		return {
+			uploadedImageUrl: appState.uploadedImageUrl,
+			uploadedImageName: appState.uploadedImageName,
+			selectedRowIndex: appState.selectedRowIndex,
+			waveformLabel: appState.waveformLabel
+		}
 	}
 
 	@Spec('Creates one small stub app state object that accepts the default image load without needing the full Lit app.')
@@ -52,7 +59,12 @@ export class AppImageWaveformLoaderTest {
 			imageWaveformBank: {
 				async loadFromImageUrl(imageUrl: string) {
 					return {
-						rows: [{ samples: [0.25, -0.25], averageBrightness: 0.5 }],
+						rows: [
+							{ samples: [0.1, -0.1], averageBrightness: 0.2 },
+							{ samples: [0.2, -0.2], averageBrightness: 0.4 },
+							{ samples: [0.25, -0.25], averageBrightness: 0.5 },
+							{ samples: [0.3, -0.3], averageBrightness: 0.6 }
+						],
 						width: imageUrl === '/images/karamazov_chart.jpg' ? 320 : 0,
 						height: 180
 					}
@@ -65,10 +77,10 @@ export class AppImageWaveformLoaderTest {
 				this.uploadedImageUrl = null
 			},
 			chooseDefaultRowIndex() {
-				return 0
+				return 2
 			},
 			applySelectedWaveformRow() {
-				this.waveformLabel = 'Row 1'
+				this.waveformLabel = 'Row 3'
 			}
 		}
 	}

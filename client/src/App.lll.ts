@@ -117,7 +117,7 @@ export class App extends LitElement {
 	@state()
 	public waveformCrossfadePercent: number = 10
 	@state()
-	public waveformRowRandomnessPercent: number = 0.5
+	public waveformRowRandomnessPercent: number = 5
 	@state()
 	public pluckDampingPercent: number = 58
 	@state()
@@ -516,19 +516,12 @@ export class App extends LitElement {
 	private formatPitchValue(activePitch: KeyboardPitch): string {
 		return `${activePitch.frequencyHz.toFixed(2)} Hz`
 	}
-	@Spec('Selects a default uploaded row that is likely to sound distinct by preferring the brightest row in the image bank.')
+	@Spec('Selects a default uploaded row near the middle of the image bank so the initial waveform starts around the visual midpoint.')
 	public chooseDefaultRowIndex(rows: ImageWaveformRow[]): number {
-		let brightestRowIndex = 0
-		let brightestAverage = -1
-		for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
-			const averageBrightness = rows[rowIndex]?.averageBrightness ?? -1
-			if (averageBrightness <= brightestAverage) {
-				continue
-			}
-			brightestAverage = averageBrightness
-			brightestRowIndex = rowIndex
+		if (rows.length <= 1) {
+			return 0
 		}
-		return brightestRowIndex
+		return Math.floor(rows.length / 2)
 	}
 
 	@Spec('Applies the currently selected uploaded image row to the synth and refreshes the visible waveform status cards.')

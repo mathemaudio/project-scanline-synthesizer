@@ -483,7 +483,7 @@ export class AppTest {
 		}
 	}
 
-	@Scenario('row randomness defaults to 0.5 percent and its slider exposes the nearby range control')
+	@Scenario('row randomness defaults to 5 percent and its slider exposes the nearby range control')
 	static async showsRowRandomnessControlDefault(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ randomnessValue: string, sliderValue: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
@@ -509,11 +509,11 @@ export class AppTest {
 			})
 			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
 			await app.updateComplete
-			await waitFor(() => this.readText(app, '#waveform-row-randomness-value') === '0.5% nearby row range', 'Expected row randomness to default to 0.5 percent after an image upload')
+			await waitFor(() => this.readText(app, '#waveform-row-randomness-value') === '5% nearby row range', 'Expected row randomness to default to 5 percent after an image upload')
 			const randomnessValue = this.readText(app, '#waveform-row-randomness-value')
 			const sliderValue = this.readTextFromValueContainer(app, '#waveform-row-randomness-slider')
-			assert(randomnessValue === '0.5% nearby row range', 'Expected the visible row randomness label to start at 0.5 percent')
-			assert(sliderValue === '0.5', 'Expected the row randomness knob value to start at 0.5')
+			assert(randomnessValue === '5% nearby row range', 'Expected the visible row randomness label to start at 5 percent')
+			assert(sliderValue === '5', 'Expected the row randomness knob value to start at 5')
 			return { randomnessValue, sliderValue }
 		} finally {
 			this.restoreCanvasTestDouble()
