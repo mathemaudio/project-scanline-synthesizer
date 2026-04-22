@@ -158,6 +158,11 @@ export class AppSoundDesignPanel {
 								<input id="waveform-crossfade-slider" class="row-slider" type="range" min="0" max="50" step="1" .value=${String(this.source.waveformCrossfadePercent)} @input=${this.source.onWaveformCrossfadeChange} />
 								<div id="waveform-crossfade-value" class="plate-value">${this.source.waveformCrossfadePercent}% seam overlap</div>
 							</div>
+							<div class="preview-controls">
+								<div class="status-label">Randomize row</div>
+								<input id="waveform-row-randomness-slider" class="row-slider" type="range" min="0" max="10" step="0.5" .value=${String(this.source.waveformRowRandomnessPercent)} @input=${this.source.onWaveformRowRandomnessChange} />
+								<div id="waveform-row-randomness-value" class="plate-value">${this.source.waveformRowRandomnessPercent}% nearby row range</div>
+							</div>
 						</div>
 						<div class="selected-image-cycle-strip" style=${this.source.uploadedPreviewWidthPx > 0 ? `width: ${this.source.uploadedPreviewWidthPx}px;` : 'width: 100%;'}>
 							<image-waveform-preview id="selected-image-cycle-preview" class="image-cycle-preview-plain" .samples=${this.source.imageWaveformRows[this.source.selectedRowIndex]?.samples ?? []} .seamRatios=${[]} previewLabel=${''} .cycleCount=${1} .rowIndex=${-1} .rowCount=${0}></image-waveform-preview>

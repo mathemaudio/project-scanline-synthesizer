@@ -1,4 +1,4 @@
-import { LitElement, html, type TemplateResult } from 'lit'
+import { LitElement, type TemplateResult } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
 import { Spec } from '@shared/lll.lll'
 import { AppViewStyles } from './AppViewStyles.lll'
@@ -12,12 +12,16 @@ import { QwertyKeyboard } from './QwertyKeyboard.lll'
 import { EffectsSettings } from './synth/EffectsSettings.lll'
 import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
+import { WaveformRowRandomizer } from './app/WaveformRowRandomizer.lll'
 import './ImageWaveformPreview.lll'
 import './UploadedImagePreview.lll'
+import { AppShellRenderer } from './app/AppShellRenderer.lll'
 
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono-poly voice behavior, three playback-shaping modes, and uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
+	private readonly appShellRenderer = new AppShellRenderer(this)
+
 	public readonly appSoundDesignPanel = new AppSoundDesignPanel(this)
 
 	static styles = AppViewStyles.styles
@@ -102,10 +106,13 @@ export class App extends LitElement {
 	public delayTimeMs: number = 280
 	@state()
 	public waveformCrossfadePercent: number = 10
+	@state()
+	public waveformRowRandomnessPercent: number = 0.5
 
 	public imageWaveformRows: ImageWaveformRow[] = []
 	private readonly imageWaveformBank = new ImageWaveformBank()
 	private readonly waveformCycleCrossfader = new WaveformCycleCrossfader()
+	private readonly waveformRowRandomizer = new WaveformRowRandomizer()
 
 	private readonly synth = new PrimitiveSynth({
 		monophonic: true,
@@ -188,13 +195,14 @@ export class App extends LitElement {
 		this.updateActivePitchDisplay(playState.activePitch)
 		if (event.type === 'keydown' && playState.didChange && playState.activePitch !== null) {
 			this.triggerCount += 1
+			this.randomizeWaveformRowForNewKeyPress()
 		}
 		await this.synth.syncNotes(playState.heldPitches.map((pitch) => pitch.frequencyHz))
 		this.updateSoundingVoiceCount(playState.heldPitches)
 	}
 
 	@Spec('Turns monophonic synth mode on or off from the visible switch and reapplies the current held notes immediately.')
-	private async onMonophonicToggle(event: Event) {
+	public async onMonophonicToggle(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		this.isMonophonic = input?.checked ?? false
 		this.synth.setMonophonic(this.isMonophonic)
@@ -205,7 +213,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Applies the visible monophonic portamento slider and forwards the glide time to the synth engine in seconds.')
-	private onPortamentoInput(event: Event) {
+	public onPortamentoInput(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
@@ -512,7 +520,7 @@ export class App extends LitElement {
 		const processedSamples = this.createCrossfadedWaveformSamples(selectedRow.samples)
 		this.synth.setWaveformSamples(processedSamples)
 		this.waveformLabel = `Row ${this.selectedRowIndex + 1}`
-		this.waveformDetailText = `Uploaded waveform row ${this.selectedRowIndex + 1} of ${this.availableRowCount} is active. Loop crossfade ${this.waveformCrossfadePercent}%. Average brightness ${(selectedRow.averageBrightness * 100).toFixed(1)}%.`
+		this.waveformDetailText = `Uploaded waveform row ${this.selectedRowIndex + 1} of ${this.availableRowCount} is active. Loop crossfade ${this.waveformCrossfadePercent}%. Row randomness ${this.waveformRowRandomnessPercent}%. Average brightness ${(selectedRow.averageBrightness * 100).toFixed(1)}%.`
 	}
 
 	@Spec('Handles a visible row selection change so users can audition different uploaded image rows as stable waveforms.')
@@ -542,6 +550,36 @@ export class App extends LitElement {
 		this.applySelectedWaveformRow()
 	}
 
+	@Spec('Applies one visible row-randomness slider change so future key presses can jump to nearby uploaded waveform rows.')
+	public onWaveformRowRandomnessChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null
+		const nextValue = Number(input?.value ?? '0')
+		if (Number.isFinite(nextValue) === false) {
+			return
+		}
+		this.waveformRowRandomnessPercent = Math.max(0, Math.min(10, nextValue))
+		this.applySelectedWaveformRow()
+	}
+
+	@Spec('Randomizes the active uploaded waveform row around the current row whenever a new playable key press arrives and row randomness is enabled.')
+	private randomizeWaveformRowForNewKeyPress() {
+		if (this.availableRowCount <= 1 || this.waveformRowRandomnessPercent <= 0) {
+			return
+		}
+		const nextRowIndex = this.waveformRowRandomizer.chooseRandomizedRowIndex(
+			this.selectedRowIndex,
+			this.availableRowCount,
+			this.waveformRowRandomnessPercent,
+			Math.random(),
+			Math.random()
+		)
+		if (nextRowIndex === this.selectedRowIndex) {
+			return
+		}
+		this.selectedRowIndex = nextRowIndex
+		this.applySelectedWaveformRow()
+	}
+
 	@Spec('Builds the steady-state loop period used for playback after the selected waveform seam is converted into a linear overlap-add join.')
 	private createCrossfadedWaveformSamples(samples: number[]): number[] {
 		return this.waveformCycleCrossfader.createCrossfadedCycleSamples(samples, this.waveformCrossfadePercent / 100)
@@ -567,7 +605,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Returns the visible portamento value label shown beside the monophonic glide slider.')
-	private getPortamentoValueLabel(): string {
+	public getPortamentoValueLabel(): string {
 		return `${this.portamentoMs} ms`
 	}
 
@@ -604,90 +642,12 @@ export class App extends LitElement {
 	}
 
 	@Spec('Renders one visible playback-mode radio option inside the compact selector block.')
-	private renderPlaybackModeOption(playbackMode: SynthPlaybackMode, title: string, detail: string): TemplateResult {
-		const optionId = `playback-mode-${playbackMode}`
-		return html`
-			<label class=${`radio-option ${this.playbackMode === playbackMode ? 'radio-option-selected' : ''}`} for=${optionId}>
-				<input id=${optionId} class="radio-input" type="radio" name="playback-mode" value=${playbackMode} ?checked=${this.playbackMode === playbackMode} @change=${this.onPlaybackModeChange} />
-				<span class="radio-mark" aria-hidden="true"></span>
-				<span class="radio-copy">
-					<span class="radio-title">${title}</span>
-					<span class="radio-detail">${detail}</span>
-				</span>
-			</label>
-		`
+	public renderPlaybackModeOption(playbackMode: SynthPlaybackMode, title: string, detail: string): TemplateResult {
+		return this.appShellRenderer.renderPlaybackModeOption(playbackMode, title, detail)
 	}
-	@Spec('Renders the QWERTY keyboard guide, compact monophonic toggle, playback-mode selector, visible synth status cards, uploaded image waveform panel, and right-side sound settings panel.')
-	render(): TemplateResult {
-		return html`
-			<main>
-				<header>
-					<div class="header-copy">
-						<p class="eyebrow">Phase 3 — Image Upload and Row-Based Waveform Synth</p>
-						<h1>Scanline Synth</h1>
-						<p class="lead">
-							Upload an image, turn its horizontal rows into single-cycle waveforms, and keep playing the
-							QWERTY keyboard while selecting which row shapes the active timbre.
-						</p>
-					</div>
-					<div class="brand-plate" aria-label="Instrument panel badge">
-						<div class="plate-label">Program</div>
-						<div class="plate-value">ANALOG KEYS / PANEL A</div>
-						<div class="plate-label">Circuit status</div>
-						<div class="plate-value">OSC READY · FILTER WARM</div>
-					</div>
-				</header>
 
-				<section class="keyboard-guide" aria-label="QWERTY keyboard mapping">
-					<div class="guide-card">
-						<div class="guide-label">Upper row</div>
-						<div id="keyboard-row-top-value" class="guide-value">${this.getKeyboardUpperRowGuide()}</div>
-					</div>
-					<div class="guide-card">
-						<div class="guide-label">Lower row</div>
-						<div id="keyboard-row-bottom-value" class="guide-value">${this.getKeyboardLowerRowGuide()}</div>
-					</div>
-				</section>
-
-				<section class="mode-section" aria-label="Synth voice mode and playback mode controls">
-					<label class="switch-card switch-card-compact" for="monophonic-toggle">
-						<div class="switch-label">Monophonic mode</div>
-						<div class="switch-row">
-							<div id="monophonic-toggle-value" class="switch-value">${this.isMonophonic ? 'On' : 'Off'}</div>
-							<span class="switch-control">
-								<input id="monophonic-toggle" class="switch-input" type="checkbox" ?checked=${this.isMonophonic} @change=${this.onMonophonicToggle} />
-								<span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-							</span>
-						</div>
-						<div class="setting-control switch-setting-control">
-							<div class="setting-label-row">
-								<div class="switch-label">Portamento</div>
-								<div id="portamento-value" class="setting-value">${this.getPortamentoValueLabel()}</div>
-							</div>
-							<input
-								id="portamento-slider"
-								class="settings-slider"
-								type="range"
-								min="0"
-								max="1000"
-								step="1"
-								.value=${String(this.portamentoMs)}
-								@input=${this.onPortamentoInput}
-							/>
-						</div>
-					</label>
-					<section class="mode-selector-card" aria-label="Playback mode selector">
-						<div class="switch-label">Playback mode</div>
-						<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
-							${this.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
-							${this.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
-							${this.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
-						</div>
-					</section>
-				</section>
-
-				${this.appSoundDesignPanel.renderStatusUploadPanel()}
-			</main>
-		`
+	@Spec('Renders the app through the focused shell renderer so the top-level Lit custom element still exposes its visible UI.')
+	public render(): TemplateResult {
+		return this.appShellRenderer.render()
 	}
 }

@@ -450,6 +450,131 @@ export class AppTest {
 		}
 	}
 
+	@Scenario('row randomness defaults to 0.5 percent and its slider exposes the nearby range control')
+	static async showsRowRandomnessControlDefault(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ randomnessValue: string, sliderValue: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+		const originalCreateObjectUrl = URL.createObjectURL
+		const originalRevokeObjectUrl = URL.revokeObjectURL
+		const originalImage = (globalThis as Record<string, unknown>)['Image']
+		const originalHTMLElement = (globalThis as Record<string, unknown>)['HTMLElement']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		URL.createObjectURL = ((_file: Blob | MediaSource) => this.behavioralPreviewImageUrl) as typeof URL.createObjectURL
+		URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL
+			; (globalThis as Record<string, unknown>)['Image'] = this.createBehavioralImageConstructor()
+			; (globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			this.installCanvasTestDouble()
+			const uploadInput = app.shadowRoot?.querySelector<HTMLInputElement>('#image-upload-input')
+			assert(uploadInput !== null && uploadInput !== undefined, 'Expected image upload input to exist')
+			Object.defineProperty(uploadInput, 'files', {
+				configurable: true,
+				value: [this.createBehavioralImageFile('randomness-default.svg')]
+			})
+			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#waveform-row-randomness-value') === '0.5% nearby row range', 'Expected row randomness to default to 0.5 percent after an image upload')
+			const randomnessValue = this.readText(app, '#waveform-row-randomness-value')
+			const sliderValue = this.readTextFromValueContainer(app, '#waveform-row-randomness-slider')
+			assert(randomnessValue === '0.5% nearby row range', 'Expected the visible row randomness label to start at 0.5 percent')
+			assert(sliderValue === '0.5', 'Expected the row randomness slider value to start at 0.5')
+			return { randomnessValue, sliderValue }
+		} finally {
+			this.restoreCanvasTestDouble()
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+			URL.createObjectURL = originalCreateObjectUrl
+			URL.revokeObjectURL = originalRevokeObjectUrl
+			if (originalImage === undefined) {
+				delete (globalThis as Record<string, unknown>)['Image']
+			} else {
+				(globalThis as Record<string, unknown>)['Image'] = originalImage
+			}
+			if (originalHTMLElement === undefined) {
+				delete (globalThis as Record<string, unknown>)['HTMLElement']
+			} else {
+				(globalThis as Record<string, unknown>)['HTMLElement'] = originalHTMLElement
+			}
+		}
+	}
+
+	@Scenario('a new key press can jump to a nearby uploaded row when row randomness is enabled')
+	static async randomizesNearbyRowOnNewKeyPress(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ rowValue: string, waveform: string, triggerCount: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+		const originalCreateObjectUrl = URL.createObjectURL
+		const originalRevokeObjectUrl = URL.revokeObjectURL
+		const originalImage = (globalThis as Record<string, unknown>)['Image']
+		const originalHTMLElement = (globalThis as Record<string, unknown>)['HTMLElement']
+		const originalMathRandom = Math.random
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		URL.createObjectURL = ((_file: Blob | MediaSource) => this.behavioralPreviewImageUrl) as typeof URL.createObjectURL
+		URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL
+			; (globalThis as Record<string, unknown>)['Image'] = this.createBehavioralImageConstructor()
+			; (globalThis as Record<string, unknown>)['HTMLElement'] = this.createBehavioralHTMLElementConstructor()
+		Math.random = (() => 0.75) as typeof Math.random
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			this.installCanvasTestDouble()
+			const uploadInput = app.shadowRoot?.querySelector<HTMLInputElement>('#image-upload-input')
+			assert(uploadInput !== null && uploadInput !== undefined, 'Expected image upload input to exist')
+			Object.defineProperty(uploadInput, 'files', {
+				configurable: true,
+				value: [this.createBehavioralImageFile('randomness-jump.svg')]
+			})
+			uploadInput.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#waveform-row-value').includes('of 2'), 'Expected the row selector to become available before enabling row randomness')
+			const rowSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-row-slider')
+			const randomnessSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-row-randomness-slider')
+			assert(rowSlider !== null && rowSlider !== undefined, 'Expected waveform row slider to exist')
+			assert(randomnessSlider !== null && randomnessSlider !== undefined, 'Expected waveform row randomness slider to exist')
+			rowSlider.value = '0'
+			rowSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			randomnessSlider.value = '10'
+			randomnessSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#waveform-row-value') === 'Row 2 of 2', 'Expected the next key press to jump to a nearby row when randomness is enabled')
+			const rowValue = this.readText(app, '#waveform-row-value')
+			const waveform = this.readText(app, '#waveform-value')
+			const triggerCount = this.readText(app, '#trigger-count-value')
+			assert(rowValue === 'Row 2 of 2', 'Expected row randomness to move from the first row to the nearby second row on the next key press')
+			assert(waveform === 'Row 2', 'Expected the visible waveform label to follow the randomized row jump')
+			assert(triggerCount === '1', 'Expected the key press that randomized the row to still count as one trigger')
+			return { rowValue, waveform, triggerCount }
+		} finally {
+			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
+			this.restoreCanvasTestDouble()
+			Math.random = originalMathRandom
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+			URL.createObjectURL = originalCreateObjectUrl
+			URL.revokeObjectURL = originalRevokeObjectUrl
+			if (originalImage === undefined) {
+				delete (globalThis as Record<string, unknown>)['Image']
+			} else {
+				(globalThis as Record<string, unknown>)['Image'] = originalImage
+			}
+			if (originalHTMLElement === undefined) {
+				delete (globalThis as Record<string, unknown>)['HTMLElement']
+			} else {
+				(globalThis as Record<string, unknown>)['HTMLElement'] = originalHTMLElement
+			}
+		}
+	}
+
 	@Scenario('moving the row selector changes the visible active image row while keyboard play still works')
 	static async changesSelectedImageRowAndKeepsKeyboardPlayable(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ waveform: string, rowValue: string, previewMeta: string, selectedRowLineTop: string, activeKey: string, noteState: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -479,7 +604,11 @@ export class AppTest {
 			await waitFor(() => this.readText(app, '#waveform-row-value').includes('of 2'), 'Expected row slider to become active after upload')
 
 			const slider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-row-slider')
+			const randomnessSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-row-randomness-slider')
 			assert(slider !== null && slider !== undefined, 'Expected waveform row slider to exist')
+			assert(randomnessSlider !== null && randomnessSlider !== undefined, 'Expected waveform row randomness slider to exist')
+			randomnessSlider.value = '0'
+			randomnessSlider.dispatchEvent(new Event('input', { bubbles: true }))
 			slider.value = '1'
 			slider.dispatchEvent(new Event('input', { bubbles: true }))
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
