@@ -17,8 +17,8 @@ export class VintageKnob extends LitElement {
 
 		.knob {
 			position: relative;
-			width: 110px;
-			height: 110px;
+			width: 68px;
+			height: 68px;
 			display: grid;
 			place-items: center;
 			border: none;
@@ -32,18 +32,18 @@ export class VintageKnob extends LitElement {
 				radial-gradient(circle at 35% 30%, rgba(255, 246, 221, 0.28), rgba(0, 0, 0, 0) 40%),
 				radial-gradient(circle at 50% 50%, #564335 0 45%, #342921 59%, #130f0c 74%, #050404 100%);
 			box-shadow:
-				inset 0 2px 2px rgba(255, 248, 232, 0.1),
-				inset 0 -8px 14px rgba(0, 0, 0, 0.6),
-				0 10px 20px rgba(0, 0, 0, 0.34),
+				inset 0 1px 1px rgba(255, 248, 232, 0.1),
+				inset 0 -5px 10px rgba(0, 0, 0, 0.6),
+				0 6px 14px rgba(0, 0, 0, 0.34),
 				0 0 0 1px rgba(255, 226, 177, 0.12),
-				0 0 0 8px rgba(11, 9, 7, 0.42);
+				0 0 0 5px rgba(11, 9, 7, 0.42);
 			transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 		}
 
 		.knob::before {
 			content: '';
 			position: absolute;
-			inset: 11px;
+			inset: 7px;
 			border-radius: 50%;
 			background:
 				repeating-conic-gradient(from -135deg, rgba(248, 229, 188, 0.8) 0deg 1.6deg, transparent 1.6deg 8deg),
@@ -56,13 +56,15 @@ export class VintageKnob extends LitElement {
 		.knob::after {
 			content: '';
 			position: absolute;
-			width: 8px;
-			height: 32px;
+			top: 50%;
+			left: 50%;
+			width: 6px;
+			height: 20px;
 			border-radius: 999px;
 			background: linear-gradient(180deg, #fff1d2, #cf6f36 60%, #4a2412);
 			box-shadow: 0 0 10px rgba(255, 211, 152, 0.22);
-			transform: rotate(var(--knob-rotation)) translateY(-28px);
-			transform-origin: 50% 48px;
+			transform: translate(-50%, -50%) rotate(var(--knob-rotation)) translateY(-25px);
+			transform-origin: 50% 50%;
 		}
 
 		.knob:hover,
@@ -70,12 +72,12 @@ export class VintageKnob extends LitElement {
 			transform: translateY(-1px);
 			filter: brightness(1.06);
 			box-shadow:
-				inset 0 2px 2px rgba(255, 248, 232, 0.1),
-				inset 0 -8px 14px rgba(0, 0, 0, 0.6),
-				0 14px 24px rgba(0, 0, 0, 0.36),
+				inset 0 1px 1px rgba(255, 248, 232, 0.1),
+				inset 0 -5px 10px rgba(0, 0, 0, 0.6),
+				0 8px 16px rgba(0, 0, 0, 0.36),
 				0 0 0 1px rgba(255, 226, 177, 0.2),
-				0 0 18px rgba(207, 111, 54, 0.18),
-				0 0 0 8px rgba(11, 9, 7, 0.42);
+				0 0 12px rgba(207, 111, 54, 0.18),
+				0 0 0 5px rgba(11, 9, 7, 0.42);
 		}
 
 		.knob[data-disabled='true'] {
@@ -87,13 +89,13 @@ export class VintageKnob extends LitElement {
 		.value {
 			position: relative;
 			z-index: 1;
-			max-width: 60px;
+			max-width: 38px;
 			text-align: center;
 			font-family: 'Orbitron', 'Inter', sans-serif;
-			font-size: 0.84rem;
+			font-size: 0.56rem;
 			font-weight: 700;
 			line-height: 1.15;
-			letter-spacing: 0.05em;
+			letter-spacing: 0.03em;
 			color: #d8f9bf;
 			text-shadow: 0 0 10px rgba(184, 246, 169, 0.28);
 		}

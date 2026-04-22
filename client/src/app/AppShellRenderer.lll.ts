@@ -46,23 +46,22 @@ export class AppShellRenderer {
 					</section>
 	
 					<section class="mode-section" aria-label="Synth voice mode and playback mode controls">
-						<label class="switch-card switch-card-compact" for="monophonic-toggle">
+						<section class="switch-card switch-card-compact" aria-label="Monophonic mode card">
 							<div class="switch-label">Monophonic mode</div>
 							<div class="switch-row">
 								<div id="monophonic-toggle-value" class="switch-value">${this.source.isMonophonic ? 'On' : 'Off'}</div>
-								<span class="switch-control">
+								<label class="switch-control" for="monophonic-toggle">
 									<input id="monophonic-toggle" class="switch-input" type="checkbox" ?checked=${this.source.isMonophonic} @change=${this.source.onMonophonicToggle} />
 									<span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-								</span>
+								</label>
 							</div>
 							<div class="setting-control setting-control-knob switch-setting-control">
 								<div class="setting-label-row">
 									<div class="switch-label">Portamento</div>
-									<div id="portamento-value" class="setting-value">${this.source.getPortamentoValueLabel()}</div>
 								</div>
 								<vintage-knob id="portamento-slider" name="portamento-ms" .min=${0} .max=${1000} .step=${1} .value=${String(this.source.portamentoMs)} value-text=${this.source.getPortamentoValueLabel()} @input=${this.source.onPortamentoInput}></vintage-knob>
 							</div>
-						</label>
+						</section>
 						<section class="mode-selector-card" aria-label="Playback mode selector">
 							<div class="switch-label">Playback mode</div>
 							<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">

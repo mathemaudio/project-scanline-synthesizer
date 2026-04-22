@@ -18,10 +18,13 @@ import './ImageWaveformPreview.lll'
 import './UploadedImagePreview.lll'
 import { AppShellRenderer } from './app/AppShellRenderer.lll'
 import { AppControlValueReader } from './app/AppControlValueReader.lll'
+import { AppImageWaveformLoader } from './app/AppImageWaveformLoader.lll'
 
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono-poly voice behavior, three playback-shaping modes, and uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
+	public readonly appImageWaveformLoader = new AppImageWaveformLoader(this)
+
 	private readonly appControlValueReader = new AppControlValueReader(this)
 
 	private readonly appShellRenderer = new AppShellRenderer(this)
@@ -64,7 +67,10 @@ export class App extends LitElement {
 	public uploadedPreviewWidthPx: number = 0
 
 	@state()
-	private waveformDetailText: string = 'No uploaded image row is active yet.'
+	public hasCompletedDefaultImageInitialization: boolean = false
+
+	@state()
+	public waveformDetailText: string = 'No uploaded image row is active yet.'
 
 	@state()
 	public selectedRowIndex: number = 0
@@ -120,11 +126,11 @@ export class App extends LitElement {
 	public pluckNoiseBlendPercent: number = 18
 
 	public imageWaveformRows: ImageWaveformRow[] = []
-	private readonly imageWaveformBank = new ImageWaveformBank()
+	public readonly imageWaveformBank = new ImageWaveformBank()
 	private readonly waveformCycleCrossfader = new WaveformCycleCrossfader()
 	private readonly waveformRowRandomizer = new WaveformRowRandomizer()
 
-	private readonly synth = new PrimitiveSynth({
+	public readonly synth = new PrimitiveSynth({
 		monophonic: true,
 		playbackMode: 'cutoff',
 		filterEnvelopeSettings: {
@@ -171,6 +177,7 @@ export class App extends LitElement {
 		super.connectedCallback()
 		window.addEventListener('keydown', this.onWindowKeyDownListener)
 		window.addEventListener('keyup', this.onWindowKeyUpListener)
+		void this.appImageWaveformLoader.loadDefaultSynthImage()
 	}
 
 	@Spec('Disconnects global keyboard listeners, releases any sounding synth voices, and cleans up uploaded preview resources when the app unmounts.')
@@ -509,37 +516,8 @@ export class App extends LitElement {
 	private formatPitchValue(activePitch: KeyboardPitch): string {
 		return `${activePitch.frequencyHz.toFixed(2)} Hz`
 	}
-
-	@Spec('Updates the uploaded image preview and image-row waveform bank from one file selection so the synth can switch away from the built-in oscillator shapes.')
-	public async onImageSelection(event: Event) {
-		const input = event.currentTarget as HTMLInputElement | null
-		const file = input?.files?.[0] ?? null
-		if (file === null) {
-			return
-		}
-		this.revokeUploadedImageUrl()
-		this.uploadedPreviewWidthPx = 0
-		this.uploadedImageUrl = URL.createObjectURL(file)
-		this.uploadedImageName = file.name
-		try {
-			const waveformBank = await this.imageWaveformBank.loadFromFile(file)
-			this.imageWaveformRows = waveformBank.rows
-			this.availableRowCount = waveformBank.rows.length
-			this.selectedRowIndex = this.chooseDefaultRowIndex(waveformBank.rows)
-			this.applySelectedWaveformRow()
-			this.waveformDetailText = `${waveformBank.width} × ${waveformBank.height} image loaded. Row ${this.selectedRowIndex + 1} is active for playback. Loop crossfade ${this.waveformCrossfadePercent}%.`
-		} catch (_error) {
-			this.imageWaveformRows = []
-			this.availableRowCount = 0
-			this.selectedRowIndex = 0
-			this.synth.setWaveformSamples(null)
-			this.waveformLabel = this.playbackMode === 'pluck' ? 'Default pluck source' : 'Sine'
-			this.waveformDetailText = 'The selected image could not be decoded into waveform rows, so the synth stayed on its built-in waveform.'
-		}
-	}
-
 	@Spec('Selects a default uploaded row that is likely to sound distinct by preferring the brightest row in the image bank.')
-	private chooseDefaultRowIndex(rows: ImageWaveformRow[]): number {
+	public chooseDefaultRowIndex(rows: ImageWaveformRow[]): number {
 		let brightestRowIndex = 0
 		let brightestAverage = -1
 		for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
@@ -554,7 +532,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Applies the currently selected uploaded image row to the synth and refreshes the visible waveform status cards.')
-	private applySelectedWaveformRow() {
+	public applySelectedWaveformRow() {
 		const selectedRow = this.imageWaveformRows[this.selectedRowIndex] ?? null
 		if (selectedRow === null) {
 			this.synth.setWaveformSamples(null)
@@ -640,7 +618,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Releases the current uploaded image object URL when a new preview replaces it or the app unmounts.')
-	private revokeUploadedImageUrl() {
+	public revokeUploadedImageUrl() {
 		if (this.uploadedImageUrl === null) {
 			return
 		}

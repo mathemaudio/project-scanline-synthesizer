@@ -59,7 +59,7 @@ export class AppTest {
 			const voiceMode = this.readText(app, '#voice-mode-value')
 			const soundingVoices = this.readText(app, '#sounding-voices-value')
 			const noteState = this.readText(app, '#note-state-value')
-			const portamentoValue = this.readText(app, '#portamento-value')
+			const portamentoValue = this.readTextFromShadowHost(app, '#portamento-slider', '.value')
 
 			assert(toggleValue === 'On', 'Expected the visible monophonic toggle label to turn On')
 			assert(voiceMode === 'Monophonic', 'Expected voice mode card to show Monophonic')
@@ -92,9 +92,9 @@ export class AppTest {
 			portamentoSlider.value = '640'
 			portamentoSlider.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
 			await app.updateComplete
-			await waitFor(() => this.readText(app, '#portamento-value') === '640 ms', 'Expected the visible portamento value to update after moving the slider')
+			await waitFor(() => this.readTextFromShadowHost(app, '#portamento-slider', '.value') === '640 ms', 'Expected the visible portamento value to update after moving the slider')
 
-			const portamentoValue = this.readText(app, '#portamento-value')
+			const portamentoValue = this.readTextFromShadowHost(app, '#portamento-slider', '.value')
 			const sliderValue = this.readTextFromValueContainer(app, '#portamento-slider')
 
 			assert(portamentoValue === '640 ms', 'Expected the monophonic card to show the updated portamento milliseconds')
@@ -779,11 +779,13 @@ export class AppTest {
 		}
 	}
 
-	@Spec('Waits for app shadow DOM and the visible status cards needed by the scenarios.')
+	@Spec('Waits for app shadow DOM, visible status cards, and the startup image initialization attempt needed before scenarios interact with live controls.')
 	private static async prepareMountedApp(app: App, waitFor: WaitForFn): Promise<void> {
 		await waitFor(() => app.shadowRoot !== null, 'Expected app shadow DOM to render')
 		await app.updateComplete
 		await waitFor(() => this.readText(app, '#voice-mode-value').length > 0, 'Expected voice mode card to render visible text')
+		await waitFor(() => app.hasCompletedDefaultImageInitialization, 'Expected the default synthesizer image initialization attempt to finish before scenarios interact with the mounted app')
+		await app.updateComplete
 	}
 
 	@Spec('Reads visible text from one element inside the app shadow DOM.')

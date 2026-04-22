@@ -33,7 +33,7 @@ export class AppSoundDesignPanel {
 	public renderVintageKnob(inputId: string, label: string, name: string, value: number, min: number, max: number, step: number, valueText: string, onInput: (event: Event) => void, detail: string = ''): TemplateResult {
 		return html`
 			<label class="setting-control setting-control-knob" for=${inputId}>
-				<span class="setting-label-row"><span class="status-label">${label}</span><span class="setting-value">${valueText}</span></span>
+				<span class="setting-label-row"><span class="status-label">${label}</span></span>
 				<vintage-knob id=${inputId} name=${name} .min=${min} .max=${max} .step=${step} .value=${String(value)} value-text=${valueText} @input=${onInput}></vintage-knob>
 				${detail.length > 0 ? html`<span class="settings-help">${detail}</span>` : html``}
 			</label>
@@ -153,7 +153,7 @@ export class AppSoundDesignPanel {
 					<section class="upload-card" aria-label="Image upload panel">
 						<div class="status-label">Reference image</div>
 						<label class="upload-button" for="image-upload-input">Upload image</label>
-						<input id="image-upload-input" class="upload-input" type="file" accept="image/*" @change=${this.source.onImageSelection} />
+						<input id="image-upload-input" class="upload-input" type="file" accept="image/*" @change=${this.source.appImageWaveformLoader.onImageSelection.bind(this.source.appImageWaveformLoader)} />
 						<div class="plate-value" id="uploaded-image-name">${this.source.uploadedImageName}</div>
 						<div class="upload-controls">
 							<div class="status-label">Waveform row select</div>

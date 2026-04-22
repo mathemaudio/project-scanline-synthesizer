@@ -5,7 +5,17 @@ import { ImageWaveformRow } from './ImageWaveformRow.lll'
 export class ImageWaveformBank {
 	@Spec('Loads one image file, reads its pixels through a canvas, and returns normalized waveform rows plus image dimensions.')
 	async loadFromFile(file: File): Promise<{ rows: ImageWaveformRow[], width: number, height: number }> {
-		const image = await this.loadImageElement(file)
+		const imageUrl = URL.createObjectURL(file)
+		try {
+			return await this.loadFromImageUrl(imageUrl, `Unable to decode image: ${file.name}`)
+		} finally {
+			URL.revokeObjectURL(imageUrl)
+		}
+	}
+
+	@Spec('Loads one image URL, reads its pixels through a canvas, and returns normalized waveform rows plus image dimensions.')
+	async loadFromImageUrl(imageUrl: string, decodeErrorMessage: string): Promise<{ rows: ImageWaveformRow[], width: number, height: number }> {
+		const image = await this.loadImageElement(imageUrl, decodeErrorMessage)
 		const width = Math.max(1, Math.floor(image.naturalWidth))
 		const height = Math.max(1, Math.floor(image.naturalHeight))
 		const canvas = document.createElement('canvas')
@@ -24,20 +34,15 @@ export class ImageWaveformBank {
 		}
 	}
 
-	@Spec('Loads one file into an HTML image element and waits until the browser has decoded it.')
-	private async loadImageElement(file: File): Promise<HTMLImageElement> {
-		const imageUrl = URL.createObjectURL(file)
+	@Spec('Loads one image URL into an HTML image element and waits until the browser has decoded it.')
+	private async loadImageElement(imageUrl: string, decodeErrorMessage: string): Promise<HTMLImageElement> {
 		const image = new Image()
-		try {
-			await new Promise<void>((resolve, reject) => {
-				image.onload = () => resolve()
-				image.onerror = () => reject(new Error(`Unable to decode image: ${file.name}`))
-				image.src = imageUrl
-			})
-			return image
-		} finally {
-			URL.revokeObjectURL(imageUrl)
-		}
+		await new Promise<void>((resolve, reject) => {
+			image.onload = () => resolve()
+			image.onerror = () => reject(new Error(decodeErrorMessage))
+			image.src = imageUrl
+		})
+		return image
 	}
 
 	@Spec('Converts every horizontal pixel row into a normalized single-cycle waveform row.')

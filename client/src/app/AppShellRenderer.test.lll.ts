@@ -1,3 +1,4 @@
+// Temporary harmless edit for tool icon debugging; safe to revert.
 import './AppShellRenderer.lll'
 import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
 import { AppShellRenderer } from './AppShellRenderer.lll'
