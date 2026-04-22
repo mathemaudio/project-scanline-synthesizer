@@ -200,7 +200,7 @@ export class AppStyles {
 		}
 
 		.status-upload-layout {
-			grid-template-columns: minmax(250px, 0.62fr) minmax(520px, 1.38fr) minmax(340px, 1fr);
+			grid-template-columns: minmax(250px, 0.62fr) minmax(600px, 1.52fr) minmax(440px, 1.18fr);
 			align-items: start;
 		}
 
@@ -271,6 +271,11 @@ export class AppStyles {
 			border-radius: 14px;
 			background: linear-gradient(180deg, rgba(207, 111, 54, 0.08), rgba(0, 0, 0, 0.08));
 			border: 1px solid rgba(221, 157, 90, 0.12);
+		}
+
+		.preview-controls-inline {
+			height: 100%;
+			align-content: start;
 		}
 
 		.preview-controls-knob {
@@ -484,6 +489,12 @@ export class AppStyles {
 			min-height: 100%;
 		}
 
+		.sound-design-stack {
+			display: grid;
+			gap: 12px;
+			align-content: start;
+		}
+
 		.sound-design-card-effects {
 			margin-top: -4px;
 		}
@@ -500,6 +511,15 @@ export class AppStyles {
 		.settings-grid {
 			grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
 			gap: 12px;
+		}
+
+		.settings-grid-waveform-inline {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			align-items: stretch;
+		}
+
+		.settings-grid-effects {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
 
 		.setting-control {
@@ -564,6 +584,14 @@ export class AppStyles {
 			.settings-grid {
 				grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 			}
+
+			.settings-grid-waveform-inline {
+				grid-template-columns: 1fr;
+			}
+
+			.settings-grid-effects {
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+			}
 		}
 
 		@media (max-width: 900px) {
@@ -577,6 +605,10 @@ export class AppStyles {
 
 			.settings-grid {
 				grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+			}
+
+			.settings-grid-effects {
+				grid-template-columns: repeat(2, minmax(0, 1fr));
 			}
 		}
 
@@ -602,6 +634,10 @@ export class AppStyles {
 
 			.settings-grid {
 				grid-template-columns: 1fr 1fr;
+			}
+
+			.settings-grid-effects {
+				grid-template-columns: 1fr;
 			}
 
 			:host {

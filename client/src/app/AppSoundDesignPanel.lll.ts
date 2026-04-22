@@ -62,7 +62,7 @@ export class AppSoundDesignPanel {
 						<div class="status-label">Effects</div>
 						<div id="effects-panel-value" class="plate-value">Always on</div>
 					</div>
-					<div class="settings-grid">
+					<div class="settings-grid settings-grid-effects">
 						${this.renderEffectsSettingSlider('chorus-mix-slider', 'Chorus mix', 'chorus-mix-percent', this.source.chorusMixPercent, 0, 80, 1, '%')}
 						${this.renderEffectsSettingSlider('chorus-feedback-slider', 'Chorus feedback', 'chorus-feedback-percent', this.source.chorusFeedbackPercent, 0, 75, 1, '%')}
 						${this.renderEffectsSettingSlider('chorus-depth-slider', 'Chorus depth', 'chorus-depth-ms', this.source.chorusDepthMs, 1, 30, 1, ' ms')}
@@ -72,6 +72,28 @@ export class AppSoundDesignPanel {
 					</div>
 				</section>
 			`
+	}
+
+	@Spec('Renders the waveform crossfade and row-randomness controls together in one compact horizontal strip below the playback settings card.')
+	public renderWaveformPlaybackControls(): TemplateResult {
+		return html`
+			<section class="sound-design-card sound-design-card-waveform" aria-label="Waveform playback controls panel">
+				<div class="sound-design-header">
+					<div class="status-label">Waveform playback</div>
+					<div class="plate-value">Row shaping</div>
+				</div>
+				<div class="settings-grid settings-grid-waveform-inline">
+					<div class="preview-controls preview-controls-knob preview-controls-inline">
+						${this.renderVintageKnob('waveform-crossfade-slider', 'Loop crossfade', '', this.source.waveformCrossfadePercent, 0, 50, 1, `${this.source.waveformCrossfadePercent}%`, this.source.onWaveformCrossfadeChange)}
+						<div id="waveform-crossfade-value" class="plate-value">${this.source.waveformCrossfadePercent}% seam overlap</div>
+					</div>
+					<div class="preview-controls preview-controls-knob preview-controls-inline">
+						${this.renderVintageKnob('waveform-row-randomness-slider', 'Randomize row', '', this.source.waveformRowRandomnessPercent, 0, 10, 0.5, `${this.source.waveformRowRandomnessPercent}%`, this.source.onWaveformRowRandomnessChange)}
+						<div id="waveform-row-randomness-value" class="plate-value">${this.source.waveformRowRandomnessPercent}% nearby row range</div>
+					</div>
+				</div>
+			</section>
+		`
 	}
 
 	@Spec('Renders only the playback settings card that corresponds to the currently selected raw, cutoff, or pluck mode.')
@@ -164,20 +186,15 @@ export class AppSoundDesignPanel {
 						<div class="waveform-preview-panel">
 							<div class="status-label">Selected waveform</div>
 							<image-waveform-preview id="selected-waveform-preview" .samples=${this.source.createWaveformPreviewSamples(this.source.imageWaveformRows[this.source.selectedRowIndex]?.samples ?? [])} .seamRatios=${this.source.createWaveformPreviewSeamRatios(this.source.imageWaveformRows[this.source.selectedRowIndex]?.samples ?? [])} previewLabel=${`Selected waveform preview · ${this.source.waveformCrossfadePercent}% loop crossfade`} .rowIndex=${this.source.availableRowCount === 0 ? -1 : this.source.selectedRowIndex} .rowCount=${this.source.availableRowCount}></image-waveform-preview>
-							<div class="preview-controls preview-controls-knob">
-								${this.renderVintageKnob('waveform-crossfade-slider', 'Loop crossfade', '', this.source.waveformCrossfadePercent, 0, 50, 1, `${this.source.waveformCrossfadePercent}%`, this.source.onWaveformCrossfadeChange)}
-								<div id="waveform-crossfade-value" class="plate-value">${this.source.waveformCrossfadePercent}% seam overlap</div>
-							</div>
-							<div class="preview-controls preview-controls-knob">
-								${this.renderVintageKnob('waveform-row-randomness-slider', 'Randomize row', '', this.source.waveformRowRandomnessPercent, 0, 10, 0.5, `${this.source.waveformRowRandomnessPercent}%`, this.source.onWaveformRowRandomnessChange)}
-								<div id="waveform-row-randomness-value" class="plate-value">${this.source.waveformRowRandomnessPercent}% nearby row range</div>
-							</div>
 						</div>
 						<div class="selected-image-cycle-strip" style=${this.source.uploadedPreviewWidthPx > 0 ? `width: ${this.source.uploadedPreviewWidthPx}px;` : 'width: 100%;'}>
 							<image-waveform-preview id="selected-image-cycle-preview" class="image-cycle-preview-plain" .samples=${this.source.imageWaveformRows[this.source.selectedRowIndex]?.samples ?? []} .seamRatios=${[]} previewLabel=${''} .cycleCount=${1} .rowIndex=${-1} .rowCount=${0}></image-waveform-preview>
 						</div>
 					</section>
-					${this.renderPlaybackSettingsPanel()}
+					<section class="sound-design-stack" aria-label="Playback settings and waveform controls">
+						${this.renderPlaybackSettingsPanel()}
+						${this.renderWaveformPlaybackControls()}
+					</section>
 				</section>
 			`
 	}
