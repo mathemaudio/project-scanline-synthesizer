@@ -6,9 +6,13 @@ import { KarplusStrongPluckVoice } from './synth/KarplusStrongPluckVoice.lll'
 import { PluckSettings } from './synth/PluckSettings.lll'
 import { PrimitiveSynthVoice } from './synth/PrimitiveSynthVoice.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
+import { PrimitiveSynthEffectsRouter } from './synth/PrimitiveSynthEffectsRouter.lll';
+
 
 @Spec('Provides a minimal browser synth voice engine that can switch between raw playback, filter-envelope playback, and a Karplus-Strong pluck mode while using uploaded image-derived waveforms when available.')
 export class PrimitiveSynth {
+	private readonly primitiveSynthEffectsRouter = new PrimitiveSynthEffectsRouter(this);
+
 	private readonly attackDurationSeconds: number
 	private readonly releaseDurationSeconds: number
 	private readonly defaultFrequencyHz: number
@@ -17,17 +21,17 @@ export class PrimitiveSynth {
 	private readonly scheduleTimeout: (callback: () => void, delayMs: number) => number
 	private readonly cancelTimeout: (timeoutId: number) => void
 	private readonly adsrEnvelope = new AdsrEnvelope()
-	private audioContext: AudioContext | null = null
+	public audioContext: AudioContext | null = null
 	private readonly activeVoicesByFrequencyKey: Map<string, PrimitiveSynthVoice> = new Map()
-	private readonly chorusInputNodeByAudioContext: WeakMap<AudioContext, GainNode> = new WeakMap()
-	private readonly delayInputNodeByAudioContext: WeakMap<AudioContext, GainNode> = new WeakMap()
+	public readonly chorusInputNodeByAudioContext: WeakMap<AudioContext, { inputNode: GainNode, feedbackGainNode: GainNode, delayNode: DelayNode, lfoDepthNode: GainNode }> = new WeakMap()
+	public readonly delayInputNodeByAudioContext: WeakMap<AudioContext, { inputNode: GainNode, feedbackGainNode: GainNode, delayNode: DelayNode }> = new WeakMap()
 	private pendingReadyTimeoutId: number | null = null
 	private requestVersion: number = 0
 	private isMonophonic: boolean
 	private waveformSamples: number[] | null = null
 	private playbackMode: SynthPlaybackMode
 	private filterEnvelopeSettings: FilterEnvelopeSettings
-	private effectsSettings: EffectsSettings
+	public effectsSettings: EffectsSettings
 	private pluckSettings: PluckSettings
 	private portamentoSeconds: number
 	private lastMonophonicFrequencyHz: number | null = null
@@ -89,7 +93,7 @@ export class PrimitiveSynth {
 	@Spec('Replaces the active chorus and delay settings used by the effects playback mode and refreshes the shared effect buses.')
 	setEffectsSettings(effectsSettings: EffectsSettings) {
 		this.effectsSettings = this.normalizeEffectsSettings(effectsSettings)
-		this.refreshEffectsRouting()
+		this.primitiveSynthEffectsRouter.refreshEffectsRouting()
 	}
 
 	@Spec('Replaces the active Karplus-Strong pluck settings and updates any currently sounding pluck voices with the live damping and brightness values.')
@@ -503,81 +507,12 @@ export class PrimitiveSynth {
 
 	@Spec('Routes one voice output to the destination and also through the shared chorus and delay buses so effects stay global across playback modes.')
 	private connectVoiceOutput(outputNode: AudioNode, audioContext: AudioContext) {
-		const chorusInputNode = this.ensureChorusInputNode(audioContext)
-		const delayInputNode = this.ensureDelayInputNode(audioContext)
+		const chorusInputNode = this.primitiveSynthEffectsRouter.ensureChorusInputNode(audioContext)
+		const delayInputNode = this.primitiveSynthEffectsRouter.ensureDelayInputNode(audioContext)
 		outputNode.connect(audioContext.destination)
 		outputNode.connect(chorusInputNode)
 		outputNode.connect(delayInputNode)
 	}
-
-	@Spec('Ensures one shared chorus send bus exists for the audio context and applies the latest chorus routing values.')
-	private ensureChorusInputNode(audioContext: AudioContext): GainNode {
-		const existingNode = this.chorusInputNodeByAudioContext.get(audioContext)
-		if (existingNode !== undefined) {
-			return existingNode
-		}
-		const sendNode = audioContext.createGain()
-		const wetGainNode = audioContext.createGain()
-		const feedbackGainNode = audioContext.createGain()
-		const delayNode = audioContext.createDelay(0.05)
-		const lfoOscillator = audioContext.createOscillator()
-		const lfoDepthNode = audioContext.createGain()
-		sendNode.gain.value = this.effectsSettings.chorusMix
-		wetGainNode.gain.value = 0.7
-		feedbackGainNode.gain.value = this.effectsSettings.chorusFeedback
-		delayNode.delayTime.value = this.effectsSettings.chorusDepthMs / 1000
-		lfoOscillator.frequency.value = 0.28
-		lfoDepthNode.gain.value = this.effectsSettings.chorusDepthMs / 2000
-		sendNode.connect(delayNode)
-		delayNode.connect(wetGainNode)
-		wetGainNode.connect(audioContext.destination)
-		delayNode.connect(feedbackGainNode)
-		feedbackGainNode.connect(sendNode)
-		lfoOscillator.connect(lfoDepthNode)
-		lfoDepthNode.connect(delayNode.delayTime)
-		lfoOscillator.start(audioContext.currentTime)
-		this.chorusInputNodeByAudioContext.set(audioContext, sendNode)
-		return sendNode
-	}
-
-	@Spec('Ensures one shared delay send bus exists for the audio context and applies the latest delay routing values.')
-	private ensureDelayInputNode(audioContext: AudioContext): GainNode {
-		const existingNode = this.delayInputNodeByAudioContext.get(audioContext)
-		if (existingNode !== undefined) {
-			return existingNode
-		}
-		const sendNode = audioContext.createGain()
-		const wetGainNode = audioContext.createGain()
-		const feedbackGainNode = audioContext.createGain()
-		const delayNode = audioContext.createDelay(1)
-		sendNode.gain.value = this.effectsSettings.delayMix
-		wetGainNode.gain.value = 0.65
-		feedbackGainNode.gain.value = this.effectsSettings.delayFeedback
-		delayNode.delayTime.value = this.effectsSettings.delayTimeMs / 1000
-		sendNode.connect(delayNode)
-		delayNode.connect(wetGainNode)
-		wetGainNode.connect(audioContext.destination)
-		delayNode.connect(feedbackGainNode)
-		feedbackGainNode.connect(delayNode)
-		this.delayInputNodeByAudioContext.set(audioContext, sendNode)
-		return sendNode
-	}
-
-	@Spec('Refreshes the shared chorus and delay buses with the latest settings after the visible effects sliders change.')
-	private refreshEffectsRouting() {
-		if (this.audioContext === null) {
-			return
-		}
-		const chorusInputNode = this.chorusInputNodeByAudioContext.get(this.audioContext)
-		if (chorusInputNode !== undefined) {
-			chorusInputNode.gain.value = this.effectsSettings.chorusMix
-		}
-		const delayInputNode = this.delayInputNodeByAudioContext.get(this.audioContext)
-		if (delayInputNode !== undefined) {
-			delayInputNode.gain.value = this.effectsSettings.delayMix
-		}
-	}
-
 	@Spec('Applies a short fade and stop time to a voice so repeated triggers do not click or hang while also releasing any active filter sweep.')
 	private retireVoice(voice: PrimitiveSynthVoice, currentTime: number, fadeDurationSeconds: number) {
 		if (voice.filterNode !== null && voice.playbackMode === 'cutoff') {

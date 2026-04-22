@@ -278,6 +278,39 @@ export class PrimitiveSynthTest {
 		return { rebuilt, activeVoiceCount, scriptProcessorCount, oscillatorType }
 	}
 
+	@Scenario('live effects updates refresh chorus and delay feedback and time parameters after buses already exist')
+	static async refreshesExistingEffectBusParameters(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ chorusMix: number, chorusFeedback: number, chorusDepthSeconds: number, delayMix: number, delayFeedback: number, delayTimeSeconds: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			playbackMode: 'raw',
+			createAudioContext: () => fakeAudioContext
+		})
+		await synth.startNote(261.625565)
+		synth.setEffectsSettings({
+			chorusMix: 0.41,
+			chorusFeedback: 0.33,
+			chorusDepthMs: 17,
+			delayMix: 0.29,
+			delayFeedback: 0.52,
+			delayTimeMs: 640
+		})
+		const chorusMix = (fakeAudioContext as unknown as { gainParamValues: number[] }).gainParamValues[1] ?? 0
+		const chorusFeedback = (fakeAudioContext as unknown as { gainParamValues: number[] }).gainParamValues[3] ?? 0
+		const chorusDepthSeconds = (fakeAudioContext as unknown as { delayParamValues: number[] }).delayParamValues[0] ?? 0
+		const delayMix = (fakeAudioContext as unknown as { gainParamValues: number[] }).gainParamValues[5] ?? 0
+		const delayFeedback = (fakeAudioContext as unknown as { gainParamValues: number[] }).gainParamValues[7] ?? 0
+		const delayTimeSeconds = (fakeAudioContext as unknown as { delayParamValues: number[] }).delayParamValues[1] ?? 0
+		assert(Math.abs(chorusMix - 0.41) < 0.000001, 'Expected live chorus mix updates to refresh the existing chorus send gain')
+		assert(Math.abs(chorusFeedback - 0.33) < 0.000001, 'Expected live chorus feedback updates to refresh the existing chorus feedback gain')
+		assert(Math.abs(chorusDepthSeconds - 0.017) < 0.000001, 'Expected live chorus depth updates to refresh the existing chorus delay time')
+		assert(Math.abs(delayMix - 0.29) < 0.000001, 'Expected live delay mix updates to refresh the existing delay send gain')
+		assert(Math.abs(delayFeedback - 0.52) < 0.000001, 'Expected live delay feedback updates to refresh the existing delay feedback gain')
+		assert(Math.abs(delayTimeSeconds - 0.64) < 0.000001, 'Expected live delay time updates to refresh the existing delay node time')
+		return { chorusMix, chorusFeedback, chorusDepthSeconds, delayMix, delayFeedback, delayTimeSeconds }
+	}
+
 	@Scenario('pluck playback mode supports polyphonic independent strings with waveform excitation')
 	static async supportsPolyphonicKarplusStrongVoices(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ activeVoiceCount: number, scriptProcessorCount: number, periodicWaveCallCount: number }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -354,6 +387,8 @@ export class PrimitiveSynthTest {
 				return this
 			}
 		})
+		const gainParamValues: number[] = []
+		const delayParamValues: number[] = []
 		const fakeAudioContext = {
 			sampleRate: 48000,
 			lastOscillatorType: 'sine',
@@ -366,6 +401,8 @@ export class PrimitiveSynthTest {
 			lastFrequencyRampTarget: 0,
 			lastFrequencyValue: 0,
 			lastFrequencySetValue: 0,
+			gainParamValues,
+			delayParamValues,
 			state: 'running',
 			currentTime: 0,
 			destination: destination as AudioDestinationNode,
@@ -395,8 +432,36 @@ export class PrimitiveSynthTest {
 			},
 			createDelay() {
 				fakeAudioContext.delayCount += 1
+				const delayTime = createGainParam()
+				delayParamValues.push(delayTime.value)
+				const delayParamIndex = delayParamValues.length - 1
+				const trackedDelayTime = {
+					...delayTime,
+					set value(value: number) {
+						delayTime.value = value
+						delayParamValues[delayParamIndex] = value
+					},
+					get value() {
+						return delayTime.value
+					},
+					setValueAtTime(value: number) {
+						delayTime.setValueAtTime(value)
+						delayParamValues[delayParamIndex] = value
+						return this
+					},
+					linearRampToValueAtTime(value: number) {
+						delayTime.linearRampToValueAtTime(value)
+						delayParamValues[delayParamIndex] = value
+						return this
+					},
+					exponentialRampToValueAtTime(value: number) {
+						delayTime.exponentialRampToValueAtTime(value)
+						delayParamValues[delayParamIndex] = value
+						return this
+					}
+				}
 				return {
-					delayTime: createGainParam(),
+					delayTime: trackedDelayTime as unknown as AudioParam,
 					connect: () => {},
 					disconnect: () => {}
 				} as unknown as DelayNode
@@ -440,8 +505,36 @@ export class PrimitiveSynthTest {
 			},
 			createGain: () => {
 				fakeAudioContext.gainCount += 1
+				const gain = createGainParam()
+				gainParamValues.push(gain.value)
+				const gainParamIndex = gainParamValues.length - 1
+				const trackedGain = {
+					...gain,
+					set value(value: number) {
+						gain.value = value
+						gainParamValues[gainParamIndex] = value
+					},
+					get value() {
+						return gain.value
+					},
+					setValueAtTime(value: number) {
+						gain.setValueAtTime(value)
+						gainParamValues[gainParamIndex] = value
+						return this
+					},
+					linearRampToValueAtTime(value: number) {
+						gain.linearRampToValueAtTime(value)
+						gainParamValues[gainParamIndex] = value
+						return this
+					},
+					exponentialRampToValueAtTime(value: number) {
+						gain.exponentialRampToValueAtTime(value)
+						gainParamValues[gainParamIndex] = value
+						return this
+					}
+				}
 				return {
-					gain: createGainParam(),
+					gain: trackedGain as unknown as AudioParam,
 					connect: () => {},
 					disconnect: () => {}
 				} as unknown as GainNode
