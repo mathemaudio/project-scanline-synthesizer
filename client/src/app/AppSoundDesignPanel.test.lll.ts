@@ -12,10 +12,12 @@ export class AppSoundDesignPanelTest {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		void subjectFactory
 		const panel = new AppSoundDesignPanel(this.createAppStub())
-		const template = panel.renderStatusUploadPanel()
-		const markup = template.strings.join(' ')
-		assert(markup.includes('waveform-crossfade-slider'), 'Expected the upload panel to include the loop crossfade slider')
-		assert(markup.includes('waveform-row-randomness-slider'), 'Expected the upload panel to include the new row randomness slider')
+		const crossfadeKnob = panel.renderVintageKnob('waveform-crossfade-slider', 'Loop crossfade', '', 10, 0, 50, 1, '10%', () => undefined)
+		const randomnessKnob = panel.renderVintageKnob('waveform-row-randomness-slider', 'Randomize row', '', 0.5, 0, 10, 0.5, '0.5%', () => undefined)
+		const markup = `${crossfadeKnob.strings.join(' ')} ${crossfadeKnob.values.map((value) => String(value)).join(' ')} ${randomnessKnob.strings.join(' ')} ${randomnessKnob.values.map((value) => String(value)).join(' ')}`
+		assert(markup.includes('waveform-crossfade-slider'), 'Expected the upload panel to include the loop crossfade knob')
+		assert(markup.includes('waveform-row-randomness-slider'), 'Expected the upload panel to include the new row randomness knob')
+		assert(markup.includes('vintage-knob'), 'Expected the upload panel to render the reusable vintage knob component')
 		return { markup }
 	}
 
@@ -24,13 +26,14 @@ export class AppSoundDesignPanelTest {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		void subjectFactory
 		const panel = new AppSoundDesignPanel(this.createAppStub('pluck'))
-		const dampingSlider = panel.renderPluckSettingSlider('pluck-damping-slider', 'Damping', 'pluck-damping-percent', 58, 'Controls sustain length and loop energy loss.')
-		const brightnessSlider = panel.renderPluckSettingSlider('pluck-brightness-slider', 'Brightness', 'pluck-brightness-percent', 72, 'Controls high-frequency retention in the string loop.')
-		const noiseSlider = panel.renderPluckSettingSlider('pluck-noise-blend-slider', 'Noise blend', 'pluck-noise-blend-percent', 18, 'Crossfades between uploaded waveform excitation and broadband noise.')
+		const dampingSlider = panel.renderVintageKnob('pluck-damping-slider', 'Damping', 'pluck-damping-percent', 58, 0, 100, 1, '58%', () => undefined, 'Controls sustain length and loop energy loss.')
+		const brightnessSlider = panel.renderVintageKnob('pluck-brightness-slider', 'Brightness', 'pluck-brightness-percent', 72, 0, 100, 1, '72%', () => undefined, 'Controls high-frequency retention in the string loop.')
+		const noiseSlider = panel.renderVintageKnob('pluck-noise-blend-slider', 'Noise blend', 'pluck-noise-blend-percent', 18, 0, 100, 1, '18%', () => undefined, 'Crossfades between uploaded waveform excitation and broadband noise.')
 		const markup = `${dampingSlider.strings.join(' ')} ${dampingSlider.values.map((value) => String(value)).join(' ')} ${brightnessSlider.strings.join(' ')} ${brightnessSlider.values.map((value) => String(value)).join(' ')} ${noiseSlider.strings.join(' ')} ${noiseSlider.values.map((value) => String(value)).join(' ')}`
-		assert(markup.includes('pluck-damping-slider'), 'Expected pluck settings to render the damping slider')
-		assert(markup.includes('pluck-brightness-slider'), 'Expected pluck settings to render the brightness slider')
-		assert(markup.includes('pluck-noise-blend-slider'), 'Expected pluck settings to render the noise blend slider')
+		assert(markup.includes('pluck-damping-slider'), 'Expected pluck settings to render the damping knob')
+		assert(markup.includes('pluck-brightness-slider'), 'Expected pluck settings to render the brightness knob')
+		assert(markup.includes('pluck-noise-blend-slider'), 'Expected pluck settings to render the noise blend knob')
+		assert(markup.includes('vintage-knob'), 'Expected pluck settings to use the shared vintage knob component')
 		return { markup }
 	}
 

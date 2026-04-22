@@ -2,6 +2,7 @@ import { Spec } from '@shared/lll.lll'
 import { html, type TemplateResult } from 'lit'
 import type { App } from '../App.lll'
 import type { SynthPlaybackMode } from '../synth/SynthPlaybackMode.lll'
+import './VintageKnob.lll'
 
 @Spec('Builds the top-level Scanline Synth shell markup around the app state and delegated panel renderer.')
 export class AppShellRenderer {
@@ -54,21 +55,12 @@ export class AppShellRenderer {
 									<span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
 								</span>
 							</div>
-							<div class="setting-control switch-setting-control">
+							<div class="setting-control setting-control-knob switch-setting-control">
 								<div class="setting-label-row">
 									<div class="switch-label">Portamento</div>
 									<div id="portamento-value" class="setting-value">${this.source.getPortamentoValueLabel()}</div>
 								</div>
-								<input
-									id="portamento-slider"
-									class="settings-slider"
-									type="range"
-									min="0"
-									max="1000"
-									step="1"
-									.value=${String(this.source.portamentoMs)}
-									@input=${this.source.onPortamentoInput}
-								/>
+								<vintage-knob id="portamento-slider" name="portamento-ms" .min=${0} .max=${1000} .step=${1} .value=${String(this.source.portamentoMs)} value-text=${this.source.getPortamentoValueLabel()} @input=${this.source.onPortamentoInput}></vintage-knob>
 							</div>
 						</label>
 						<section class="mode-selector-card" aria-label="Playback mode selector">

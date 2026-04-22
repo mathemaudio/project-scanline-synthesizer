@@ -273,13 +273,17 @@ export class AppStyles {
 			border: 1px solid rgba(221, 157, 90, 0.12);
 		}
 
+		.preview-controls-knob {
+			justify-items: center;
+			text-align: center;
+		}
+
 		.upload-controls {
 			display: grid;
 			gap: 12px;
 		}
 
-		.row-slider,
-		.settings-slider {
+		.row-slider {
 			width: 100%;
 			accent-color: #cf6f36;
 		}
@@ -419,6 +423,7 @@ export class AppStyles {
 		.switch-setting-control {
 			gap: 10px;
 			padding: 12px 14px;
+			justify-items: center;
 		}
 
 		.radio-group {
@@ -493,7 +498,7 @@ export class AppStyles {
 		}
 
 		.settings-grid {
-			grid-template-columns: 1fr;
+			grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
 			gap: 12px;
 		}
 
@@ -504,11 +509,27 @@ export class AppStyles {
 			border: 1px solid rgba(255, 225, 173, 0.08);
 		}
 
+		.setting-control-knob {
+			justify-items: center;
+			align-content: start;
+			text-align: center;
+			gap: 10px;
+			padding-bottom: 16px;
+		}
+
+		.settings-help {
+			font-size: 0.8rem;
+			line-height: 1.45;
+			color: rgba(244, 235, 212, 0.72);
+			text-align: center;
+		}
+
 		.setting-label-row {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 			gap: 12px;
+			width: 100%;
 		}
 
 		.detail {
@@ -539,6 +560,10 @@ export class AppStyles {
 			.radio-group {
 				grid-template-columns: 1fr;
 			}
+
+			.settings-grid {
+				grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+			}
 		}
 
 		@media (max-width: 900px) {
@@ -548,6 +573,10 @@ export class AppStyles {
 
 			.sound-design-card {
 				grid-column: auto;
+			}
+
+			.settings-grid {
+				grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
 			}
 		}
 
@@ -569,6 +598,10 @@ export class AppStyles {
 
 			.keyboard-octave-button {
 				min-height: 78px;
+			}
+
+			.settings-grid {
+				grid-template-columns: 1fr 1fr;
 			}
 
 			:host {

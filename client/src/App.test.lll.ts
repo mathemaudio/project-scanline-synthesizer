@@ -87,10 +87,10 @@ export class AppTest {
 		try {
 			const app = await subjectFactory()
 			await this.prepareMountedApp(app, waitFor)
-			const portamentoSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#portamento-slider')
-			assert(portamentoSlider !== null && portamentoSlider !== undefined, 'Expected portamento slider to exist in the monophonic card')
+			const portamentoSlider = app.shadowRoot?.querySelector<HTMLElement & { value: string }>('#portamento-slider')
+			assert(portamentoSlider !== null && portamentoSlider !== undefined, 'Expected portamento knob to exist in the monophonic card')
 			portamentoSlider.value = '640'
-			portamentoSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			portamentoSlider.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
 			await app.updateComplete
 			await waitFor(() => this.readText(app, '#portamento-value') === '640 ms', 'Expected the visible portamento value to update after moving the slider')
 
@@ -98,7 +98,7 @@ export class AppTest {
 			const sliderValue = this.readTextFromValueContainer(app, '#portamento-slider')
 
 			assert(portamentoValue === '640 ms', 'Expected the monophonic card to show the updated portamento milliseconds')
-			assert(sliderValue === '640', 'Expected the portamento slider input value to stay in sync with the visible label')
+			assert(sliderValue === '640', 'Expected the portamento knob value to stay in sync with the visible label')
 			return { portamentoValue, sliderValue }
 		} finally {
 			if (originalAudioContext === undefined) {
@@ -449,10 +449,10 @@ export class AppTest {
 			await waitFor(() => this.readText(app, '#waveform-value').startsWith('Row '), 'Expected an uploaded image row waveform to become active before moving the loop crossfade slider')
 			await waitFor(() => this.readText(app, '#waveform-crossfade-value').includes('10%'), 'Expected the loop crossfade control to render at the new default before adjusting it')
 
-			const crossfadeSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-crossfade-slider')
-			assert(crossfadeSlider !== null && crossfadeSlider !== undefined, 'Expected loop crossfade slider to exist')
+			const crossfadeSlider = app.shadowRoot?.querySelector<HTMLElement & { value: string }>('#waveform-crossfade-slider')
+			assert(crossfadeSlider !== null && crossfadeSlider !== undefined, 'Expected loop crossfade knob to exist')
 			crossfadeSlider.value = '50'
-			crossfadeSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			crossfadeSlider.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
 			await app.updateComplete
 			await waitFor(() => this.readText(app, '#waveform-crossfade-value') === '50% seam overlap', 'Expected the loop crossfade value label to update when the slider moves')
 
@@ -513,7 +513,7 @@ export class AppTest {
 			const randomnessValue = this.readText(app, '#waveform-row-randomness-value')
 			const sliderValue = this.readTextFromValueContainer(app, '#waveform-row-randomness-slider')
 			assert(randomnessValue === '0.5% nearby row range', 'Expected the visible row randomness label to start at 0.5 percent')
-			assert(sliderValue === '0.5', 'Expected the row randomness slider value to start at 0.5')
+			assert(sliderValue === '0.5', 'Expected the row randomness knob value to start at 0.5')
 			return { randomnessValue, sliderValue }
 		} finally {
 			this.restoreCanvasTestDouble()
@@ -567,13 +567,13 @@ export class AppTest {
 			await app.updateComplete
 			await waitFor(() => this.readText(app, '#waveform-row-value').includes('of 2'), 'Expected the row selector to become available before enabling row randomness')
 			const rowSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-row-slider')
-			const randomnessSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-row-randomness-slider')
+			const randomnessSlider = app.shadowRoot?.querySelector<HTMLElement & { value: string }>('#waveform-row-randomness-slider')
 			assert(rowSlider !== null && rowSlider !== undefined, 'Expected waveform row slider to exist')
-			assert(randomnessSlider !== null && randomnessSlider !== undefined, 'Expected waveform row randomness slider to exist')
+			assert(randomnessSlider !== null && randomnessSlider !== undefined, 'Expected waveform row randomness knob to exist')
 			rowSlider.value = '0'
 			rowSlider.dispatchEvent(new Event('input', { bubbles: true }))
 			randomnessSlider.value = '10'
-			randomnessSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			randomnessSlider.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
 			await app.updateComplete
 			await waitFor(() => this.readText(app, '#waveform-row-value') === 'Row 2 of 2', 'Expected the next key press to jump to a nearby row when randomness is enabled')
@@ -637,11 +637,11 @@ export class AppTest {
 			await waitFor(() => this.readText(app, '#waveform-row-value').includes('of 2'), 'Expected row slider to become active after upload')
 
 			const slider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-row-slider')
-			const randomnessSlider = app.shadowRoot?.querySelector<HTMLInputElement>('#waveform-row-randomness-slider')
+			const randomnessSlider = app.shadowRoot?.querySelector<HTMLElement & { value: string }>('#waveform-row-randomness-slider')
 			assert(slider !== null && slider !== undefined, 'Expected waveform row slider to exist')
-			assert(randomnessSlider !== null && randomnessSlider !== undefined, 'Expected waveform row randomness slider to exist')
+			assert(randomnessSlider !== null && randomnessSlider !== undefined, 'Expected waveform row randomness knob to exist')
 			randomnessSlider.value = '0'
-			randomnessSlider.dispatchEvent(new Event('input', { bubbles: true }))
+			randomnessSlider.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
 			slider.value = '1'
 			slider.dispatchEvent(new Event('input', { bubbles: true }))
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
@@ -808,13 +808,13 @@ export class AppTest {
 		return element.textContent?.trim() ?? ''
 	}
 
-	@Spec('Reads one input value from the app shadow DOM so behavioral scenarios can verify visible slider defaults.')
+	@Spec('Reads one control value from the app shadow DOM so behavioral scenarios can verify visible slider and knob defaults.')
 	private static readTextFromValueContainer(app: App, selector: string): string {
-		const input = app.shadowRoot?.querySelector<HTMLInputElement>(selector)
+		const input = app.shadowRoot?.querySelector<HTMLElement & { value?: string }>(selector)
 		if (input === null || input === undefined) {
-			throw new Error(`App input not found: ${selector}`)
+			throw new Error(`App control not found: ${selector}`)
 		}
-		return input.value
+		return input.value ?? ''
 	}
 
 	@Spec('Reads one inline style property from a nested shadow host element inside the app for visible behavioral UI checks.')

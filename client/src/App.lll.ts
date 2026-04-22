@@ -17,10 +17,13 @@ import { WaveformRowRandomizer } from './app/WaveformRowRandomizer.lll'
 import './ImageWaveformPreview.lll'
 import './UploadedImagePreview.lll'
 import { AppShellRenderer } from './app/AppShellRenderer.lll'
+import { AppControlValueReader } from './app/AppControlValueReader.lll'
 
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono-poly voice behavior, three playback-shaping modes, and uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
+	private readonly appControlValueReader = new AppControlValueReader(this)
+
 	private readonly appShellRenderer = new AppShellRenderer(this)
 
 	public readonly appSoundDesignPanel = new AppSoundDesignPanel(this)
@@ -224,9 +227,9 @@ export class App extends LitElement {
 		this.refreshVisibleStatusText()
 	}
 
-	@Spec('Applies the visible monophonic portamento slider and forwards the glide time to the synth engine in seconds.')
+	@Spec('Applies the visible monophonic portamento control and forwards the glide time to the synth engine in seconds.')
 	public onPortamentoInput(event: Event) {
-		const input = event.currentTarget as HTMLInputElement | null
+		const input = this.appControlValueReader.readKnobLikeTarget(event)
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
 			return
@@ -258,9 +261,9 @@ export class App extends LitElement {
 		await this.rebuildHeldNotesForPlaybackChange()
 	}
 
-	@Spec('Applies one visible filter-setting slider change and forwards the updated cutoff envelope to the synth engine.')
+	@Spec('Applies one visible filter-setting control change and forwards the updated cutoff envelope to the synth engine.')
 	public onFilterSettingChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement | null
+		const input = this.appControlValueReader.readKnobLikeTarget(event)
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
 			return
@@ -290,9 +293,9 @@ export class App extends LitElement {
 		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
 	}
 
-	@Spec('Applies one visible effects slider change and forwards the updated chorus and delay settings to the synth engine.')
+	@Spec('Applies one visible effects control change and forwards the updated chorus and delay settings to the synth engine.')
 	public onEffectsSettingChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement | null
+		const input = this.appControlValueReader.readKnobLikeTarget(event)
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
 			return
@@ -319,9 +322,9 @@ export class App extends LitElement {
 		this.synth.setEffectsSettings(this.createEffectsSettings())
 	}
 
-	@Spec('Applies one visible pluck-setting slider change and forwards the updated Karplus-Strong settings to the synth engine.')
+	@Spec('Applies one visible pluck-setting control change and forwards the updated Karplus-Strong settings to the synth engine.')
 	public onPluckSettingChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement | null
+		const input = this.appControlValueReader.readKnobLikeTarget(event)
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
 			return
@@ -581,9 +584,9 @@ export class App extends LitElement {
 		this.uploadedPreviewWidthPx = Math.max(0, event.detail)
 	}
 
-	@Spec('Applies one visible loop-crossfade slider change so neighboring waveform cycles blend more smoothly at their seam.')
+	@Spec('Applies one visible loop-crossfade control change so neighboring waveform cycles blend more smoothly at their seam.')
 	public onWaveformCrossfadeChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement | null
+		const input = this.appControlValueReader.readKnobLikeTarget(event)
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
 			return
@@ -592,9 +595,9 @@ export class App extends LitElement {
 		this.applySelectedWaveformRow()
 	}
 
-	@Spec('Applies one visible row-randomness slider change so future key presses can jump to nearby uploaded waveform rows.')
+	@Spec('Applies one visible row-randomness control change so future key presses can jump to nearby uploaded waveform rows.')
 	public onWaveformRowRandomnessChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement | null
+		const input = this.appControlValueReader.readKnobLikeTarget(event)
 		const nextValue = Number(input?.value ?? '0')
 		if (Number.isFinite(nextValue) === false) {
 			return
@@ -602,7 +605,6 @@ export class App extends LitElement {
 		this.waveformRowRandomnessPercent = Math.max(0, Math.min(10, nextValue))
 		this.applySelectedWaveformRow()
 	}
-
 	@Spec('Randomizes the active uploaded waveform row around the current row whenever a new playable key press arrives and row randomness is enabled.')
 	private randomizeWaveformRowForNewKeyPress() {
 		if (this.availableRowCount <= 1 || this.waveformRowRandomnessPercent <= 0) {

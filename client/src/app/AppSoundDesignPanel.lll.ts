@@ -1,6 +1,7 @@
 import { Spec } from '@shared/lll.lll'
 import { html, type TemplateResult } from 'lit'
 import type { App } from '../App.lll'
+import './VintageKnob.lll'
 
 @Spec('Builds the playback settings and always-on effects panels for Scanline Synth.')
 export class AppSoundDesignPanel {
@@ -11,41 +12,32 @@ export class AppSoundDesignPanel {
 		this.source = source
 	}
 
-	@Spec('Renders one labeled effects slider row for the chorus and delay controls shown in the always-on effects panel.')
+	@Spec('Renders one compact labeled effects knob for the chorus and delay controls shown in the always-on effects panel.')
 	public renderEffectsSettingSlider(inputId: string, label: string, name: string, value: number, min: number, max: number, step: number, valueSuffix: string): TemplateResult {
-		return html`
-				<label class="setting-control" for=${inputId}>
-					<span class="setting-label-row"><span class="status-label">${label}</span><span class="setting-value">${value}${valueSuffix}</span></span>
-					<input id=${inputId} class="settings-slider" type="range" name=${name} min=${String(min)} max=${String(max)} step=${String(step)} .value=${String(value)} @input=${this.source.onEffectsSettingChange} />
-				</label>
-			`
+		return this.renderVintageKnob(inputId, label, name, value, min, max, step, `${value}${valueSuffix}`, this.source.onEffectsSettingChange)
 	}
 
-	@Spec('Renders one labeled filter slider row for the cutoff playback mode settings panel.')
+	@Spec('Renders one compact labeled filter knob for the cutoff playback mode settings panel.')
 	public renderFilterSettingSlider(inputId: string, label: string, name: string, value: number, min: number, max: number, step: number, valueSuffix: string): TemplateResult {
-		return html`
-				<label class="setting-control" for=${inputId}>
-					<span class="setting-label-row">
-						<span class="status-label">${label}</span>
-						<span class="setting-value">${value}${valueSuffix}</span>
-					</span>
-					<input id=${inputId} class="settings-slider" type="range" name=${name} min=${String(min)} max=${String(max)} step=${String(step)} .value=${String(value)} @input=${this.source.onFilterSettingChange} />
-				</label>
-			`
+		return this.renderVintageKnob(inputId, label, name, value, min, max, step, `${value}${valueSuffix}`, this.source.onFilterSettingChange)
 	}
 
-	@Spec('Renders one labeled pluck slider row for the Karplus-Strong playback mode settings panel.')
+	@Spec('Renders one compact labeled pluck knob for the Karplus-Strong playback mode settings panel.')
 	public renderPluckSettingSlider(inputId: string, label: string, name: string, value: number, detail: string): TemplateResult {
 		return html`
-				<label class="setting-control" for=${inputId}>
-					<span class="setting-label-row">
-						<span class="status-label">${label}</span>
-						<span class="setting-value">${value}%</span>
-					</span>
-					<input id=${inputId} class="settings-slider" type="range" name=${name} min="0" max="100" step="1" .value=${String(value)} @input=${this.source.onPluckSettingChange} />
-					<span class="settings-help">${detail}</span>
-				</label>
-			`
+			${this.renderVintageKnob(inputId, label, name, value, 0, 100, 1, `${value}%`, this.source.onPluckSettingChange, detail)}
+		`
+	}
+
+	@Spec('Renders one shared vintage knob card with label value text and optional supporting help copy.')
+	public renderVintageKnob(inputId: string, label: string, name: string, value: number, min: number, max: number, step: number, valueText: string, onInput: (event: Event) => void, detail: string = ''): TemplateResult {
+		return html`
+			<label class="setting-control setting-control-knob" for=${inputId}>
+				<span class="setting-label-row"><span class="status-label">${label}</span><span class="setting-value">${valueText}</span></span>
+				<vintage-knob id=${inputId} name=${name} .min=${min} .max=${max} .step=${step} .value=${String(value)} value-text=${valueText} @input=${onInput}></vintage-knob>
+				${detail.length > 0 ? html`<span class="settings-help">${detail}</span>` : html``}
+			</label>
+		`
 	}
 
 	@Spec('Renders the two compact octave shift buttons placed at the lower-left corner of the status column.')
@@ -172,14 +164,12 @@ export class AppSoundDesignPanel {
 						<div class="waveform-preview-panel">
 							<div class="status-label">Selected waveform</div>
 							<image-waveform-preview id="selected-waveform-preview" .samples=${this.source.createWaveformPreviewSamples(this.source.imageWaveformRows[this.source.selectedRowIndex]?.samples ?? [])} .seamRatios=${this.source.createWaveformPreviewSeamRatios(this.source.imageWaveformRows[this.source.selectedRowIndex]?.samples ?? [])} previewLabel=${`Selected waveform preview · ${this.source.waveformCrossfadePercent}% loop crossfade`} .rowIndex=${this.source.availableRowCount === 0 ? -1 : this.source.selectedRowIndex} .rowCount=${this.source.availableRowCount}></image-waveform-preview>
-							<div class="preview-controls">
-								<div class="status-label">Loop crossfade</div>
-								<input id="waveform-crossfade-slider" class="row-slider" type="range" min="0" max="50" step="1" .value=${String(this.source.waveformCrossfadePercent)} @input=${this.source.onWaveformCrossfadeChange} />
+							<div class="preview-controls preview-controls-knob">
+								${this.renderVintageKnob('waveform-crossfade-slider', 'Loop crossfade', '', this.source.waveformCrossfadePercent, 0, 50, 1, `${this.source.waveformCrossfadePercent}%`, this.source.onWaveformCrossfadeChange)}
 								<div id="waveform-crossfade-value" class="plate-value">${this.source.waveformCrossfadePercent}% seam overlap</div>
 							</div>
-							<div class="preview-controls">
-								<div class="status-label">Randomize row</div>
-								<input id="waveform-row-randomness-slider" class="row-slider" type="range" min="0" max="10" step="0.5" .value=${String(this.source.waveformRowRandomnessPercent)} @input=${this.source.onWaveformRowRandomnessChange} />
+							<div class="preview-controls preview-controls-knob">
+								${this.renderVintageKnob('waveform-row-randomness-slider', 'Randomize row', '', this.source.waveformRowRandomnessPercent, 0, 10, 0.5, `${this.source.waveformRowRandomnessPercent}%`, this.source.onWaveformRowRandomnessChange)}
 								<div id="waveform-row-randomness-value" class="plate-value">${this.source.waveformRowRandomnessPercent}% nearby row range</div>
 							</div>
 						</div>
