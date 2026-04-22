@@ -19,10 +19,25 @@ export class AppSoundDesignPanelTest {
 		return { markup }
 	}
 
+	@Scenario('pluck playback settings render damping brightness and noise controls')
+	static async rendersPluckPlaybackControls(subjectFactory: SubjectFactory<AppSoundDesignPanel>, scenario?: ScenarioParameter): Promise<{ markup: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const panel = new AppSoundDesignPanel(this.createAppStub('pluck'))
+		const dampingSlider = panel.renderPluckSettingSlider('pluck-damping-slider', 'Damping', 'pluck-damping-percent', 58, 'Controls sustain length and loop energy loss.')
+		const brightnessSlider = panel.renderPluckSettingSlider('pluck-brightness-slider', 'Brightness', 'pluck-brightness-percent', 72, 'Controls high-frequency retention in the string loop.')
+		const noiseSlider = panel.renderPluckSettingSlider('pluck-noise-blend-slider', 'Noise blend', 'pluck-noise-blend-percent', 18, 'Crossfades between uploaded waveform excitation and broadband noise.')
+		const markup = `${dampingSlider.strings.join(' ')} ${dampingSlider.values.map((value) => String(value)).join(' ')} ${brightnessSlider.strings.join(' ')} ${brightnessSlider.values.map((value) => String(value)).join(' ')} ${noiseSlider.strings.join(' ')} ${noiseSlider.values.map((value) => String(value)).join(' ')}`
+		assert(markup.includes('pluck-damping-slider'), 'Expected pluck settings to render the damping slider')
+		assert(markup.includes('pluck-brightness-slider'), 'Expected pluck settings to render the brightness slider')
+		assert(markup.includes('pluck-noise-blend-slider'), 'Expected pluck settings to render the noise blend slider')
+		return { markup }
+	}
+
 	@Spec('Builds the minimal app stub needed by the sound-design panel tests.')
-	private static createAppStub(): App {
+	private static createAppStub(playbackMode: 'cutoff' | 'pluck' = 'cutoff'): App {
 		return {
-			playbackMode: 'cutoff',
+			playbackMode,
 			chorusMixPercent: 22,
 			chorusFeedbackPercent: 8,
 			chorusDepthMs: 8,
@@ -38,6 +53,9 @@ export class AppSoundDesignPanelTest {
 			filterResonance: 13,
 			waveformCrossfadePercent: 10,
 			waveformRowRandomnessPercent: 0.5,
+			pluckDampingPercent: 58,
+			pluckBrightnessPercent: 72,
+			pluckNoiseBlendPercent: 18,
 			availableRowCount: 2,
 			selectedRowIndex: 0,
 			uploadedImageUrl: null,
@@ -54,6 +72,7 @@ export class AppSoundDesignPanelTest {
 			isMonophonic: true,
 			onEffectsSettingChange: () => undefined,
 			onFilterSettingChange: () => undefined,
+			onPluckSettingChange: () => undefined,
 			onKeyboardOctaveShift: async () => undefined,
 			onImageSelection: () => undefined,
 			onRowSelectionChange: () => undefined,
@@ -62,8 +81,8 @@ export class AppSoundDesignPanelTest {
 			onWaveformRowRandomnessChange: () => undefined,
 			createWaveformPreviewSamples: () => [0, 1, 0, 1],
 			createWaveformPreviewSeamRatios: () => [1 / 3, 2 / 3],
-			getPlaybackModeLabel: () => 'Cutoff',
-			getEnvelopeSummary: () => '40 ms A · 725 ms D · 15% S · 220 ms R'
+			getPlaybackModeLabel: () => playbackMode === 'pluck' ? 'Pluck' : 'Cutoff',
+			getEnvelopeSummary: () => playbackMode === 'pluck' ? '58% damping · 72% brightness · 18% noise' : '40 ms A · 725 ms D · 15% S · 220 ms R'
 		} as unknown as App
 	}
 

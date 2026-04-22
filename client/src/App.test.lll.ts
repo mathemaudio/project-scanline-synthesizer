@@ -210,10 +210,43 @@ export class AppTest {
 			assert(playbackMode === 'Pluck', 'Expected playback mode label to show Pluck after selecting it')
 			assert(noteState === 'Playing', 'Expected note state to remain visibly Playing while the keyboard is used after a mode switch')
 			assert(activeKey === 'Q', 'Expected the active key to still reflect keyboard play after switching playback mode')
-			assert(panelCopy.includes('bright transient'), 'Expected the pluck panel copy to describe the string-like pluck behavior')
+			assert(panelCopy.includes('Karplus') || panelCopy.includes('string loop'), 'Expected the pluck panel copy to describe the Karplus-Strong string behavior')
 			return { playbackMode, noteState, activeKey, panelCopy }
 		} finally {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+		}
+	}
+
+	@Scenario('pluck playback settings show damping brightness and noise controls')
+	static async showsPluckPlaybackControls(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ summary: string, dampingValue: string, brightnessValue: string, noiseValue: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const pluckRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-pluck')
+			assert(pluckRadio !== null && pluckRadio !== undefined, 'Expected pluck playback radio button to exist')
+			pluckRadio.checked = true
+			pluckRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Pluck', 'Expected playback settings to switch to Pluck before checking the new controls')
+			const summary = this.readText(app, '#pluck-settings-summary')
+			const dampingValue = this.readTextFromValueContainer(app, '#pluck-damping-slider')
+			const brightnessValue = this.readTextFromValueContainer(app, '#pluck-brightness-slider')
+			const noiseValue = this.readTextFromValueContainer(app, '#pluck-noise-blend-slider')
+			assert(summary.includes('damping') && summary.includes('brightness') && summary.includes('noise'), 'Expected the pluck summary to report damping, brightness, and noise values')
+			assert(dampingValue === '58', 'Expected pluck damping slider to show the default value')
+			assert(brightnessValue === '72', 'Expected pluck brightness slider to show the default value')
+			assert(noiseValue === '18', 'Expected pluck noise blend slider to show the default value')
+			return { summary, dampingValue, brightnessValue, noiseValue }
+		} finally {
 			if (originalAudioContext === undefined) {
 				delete (globalThis as Record<string, unknown>)['AudioContext']
 			} else {
@@ -943,6 +976,13 @@ export class AppTest {
 					connect: () => { },
 					disconnect: () => { }
 				} as unknown as GainNode
+			}
+			createScriptProcessor(): ScriptProcessorNode {
+				return {
+					connect: () => { },
+					disconnect: () => { },
+					onaudioprocess: null
+				} as unknown as ScriptProcessorNode
 			}
 		} as unknown as new () => AudioContext
 	}

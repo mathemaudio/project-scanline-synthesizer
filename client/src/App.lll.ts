@@ -12,6 +12,7 @@ import { QwertyKeyboard } from './QwertyKeyboard.lll'
 import { EffectsSettings } from './synth/EffectsSettings.lll'
 import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
+import { PluckSettings } from './synth/PluckSettings.lll'
 import { WaveformRowRandomizer } from './app/WaveformRowRandomizer.lll'
 import './ImageWaveformPreview.lll'
 import './UploadedImagePreview.lll'
@@ -108,6 +109,12 @@ export class App extends LitElement {
 	public waveformCrossfadePercent: number = 10
 	@state()
 	public waveformRowRandomnessPercent: number = 0.5
+	@state()
+	public pluckDampingPercent: number = 58
+	@state()
+	public pluckBrightnessPercent: number = 72
+	@state()
+	public pluckNoiseBlendPercent: number = 18
 
 	public imageWaveformRows: ImageWaveformRow[] = []
 	private readonly imageWaveformBank = new ImageWaveformBank()
@@ -133,6 +140,11 @@ export class App extends LitElement {
 			delayMix: 0.18,
 			delayFeedback: 0.24,
 			delayTimeMs: 280
+		},
+		pluckSettings: {
+			damping: 0.58,
+			brightness: 0.72,
+			noiseBlend: 0.18
 		},
 		portamentoSeconds: 0.05,
 		onStateChange: (state) => this.onSynthStateChange(state)
@@ -234,6 +246,7 @@ export class App extends LitElement {
 		this.synth.setPlaybackMode(this.playbackMode)
 		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
 		this.synth.setEffectsSettings(this.createEffectsSettings())
+		this.synth.setPluckSettings(this.createPluckSettings())
 		await this.rebuildHeldNotesForPlaybackChange()
 	}
 
@@ -306,6 +319,26 @@ export class App extends LitElement {
 		this.synth.setEffectsSettings(this.createEffectsSettings())
 	}
 
+	@Spec('Applies one visible pluck-setting slider change and forwards the updated Karplus-Strong settings to the synth engine.')
+	public onPluckSettingChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null
+		const nextValue = Number(input?.value ?? '0')
+		if (Number.isFinite(nextValue) === false) {
+			return
+		}
+		const settingName = input?.name ?? ''
+		if (settingName === 'pluck-damping-percent') {
+			this.pluckDampingPercent = nextValue
+		}
+		if (settingName === 'pluck-brightness-percent') {
+			this.pluckBrightnessPercent = nextValue
+		}
+		if (settingName === 'pluck-noise-blend-percent') {
+			this.pluckNoiseBlendPercent = nextValue
+		}
+		this.synth.setPluckSettings(this.createPluckSettings())
+	}
+
 	@Spec('Rebuilds any held notes after a playback-mode change so the currently selected keys adopt the new voice routing immediately.')
 	private async rebuildHeldNotesForPlaybackChange() {
 		const heldPitches = this.qwertyKeyboard.getHeldPitches()
@@ -343,6 +376,15 @@ export class App extends LitElement {
 		}
 	}
 
+	@Spec('Builds the current pluck settings object from the visible pluck slider state.')
+	private createPluckSettings(): PluckSettings {
+		return {
+			damping: this.pluckDampingPercent / 100,
+			brightness: this.pluckBrightnessPercent / 100,
+			noiseBlend: this.pluckNoiseBlendPercent / 100
+		}
+	}
+
 	@Spec('Maps synth engine state changes to visible keyboard status text that reflects the current voice mode and playback-shaping mode.')
 	private onSynthStateChange(state: 'ready' | 'playing' | 'releasing' | 'unsupported') {
 		this.updateSoundingVoiceCount()
@@ -353,7 +395,7 @@ export class App extends LitElement {
 				return
 			}
 			if (this.playbackMode === 'pluck') {
-				this.noteDetailText = 'Pluck mode is armed. New notes start bright, then damp quickly toward a softer string-like tone.'
+				this.noteDetailText = 'Pluck mode is armed. New notes seed an independent Karplus–Strong string loop from the uploaded waveform or blended noise source.'
 				return
 			}
 			this.noteDetailText = this.isMonophonic
@@ -374,8 +416,8 @@ export class App extends LitElement {
 			if (this.playbackMode === 'pluck') {
 				this.noteStateLabel = 'Playing'
 				this.noteDetailText = activePitch === null
-					? 'The pluck mode is ready with a damped, string-like response.'
-					: `${activePitch.noteLabel} is sounding in pluck mode with a bright transient and quick damping toward a softer tone.`
+					? 'The pluck mode is ready with a tuned Karplus–Strong string response.'
+					: `${activePitch.noteLabel} is sounding in pluck mode through its own Karplus–Strong string loop with live damping and brightness shaping.`
 				return
 			}
 			if (this.isMonophonic) {
@@ -400,7 +442,7 @@ export class App extends LitElement {
 				return
 			}
 			if (this.playbackMode === 'pluck') {
-				this.noteDetailText = 'All held keys are up, so the pluck voice is fading through its short damped tail.'
+				this.noteDetailText = 'All held keys are up, so the Karplus–Strong pluck voices are fading through their short release tails.'
 				return
 			}
 			this.noteDetailText = this.isMonophonic
@@ -488,7 +530,7 @@ export class App extends LitElement {
 			this.availableRowCount = 0
 			this.selectedRowIndex = 0
 			this.synth.setWaveformSamples(null)
-			this.waveformLabel = this.playbackMode === 'pluck' ? 'Triangle pluck' : 'Sine'
+			this.waveformLabel = this.playbackMode === 'pluck' ? 'Default pluck source' : 'Sine'
 			this.waveformDetailText = 'The selected image could not be decoded into waveform rows, so the synth stayed on its built-in waveform.'
 		}
 	}
@@ -513,7 +555,7 @@ export class App extends LitElement {
 		const selectedRow = this.imageWaveformRows[this.selectedRowIndex] ?? null
 		if (selectedRow === null) {
 			this.synth.setWaveformSamples(null)
-			this.waveformLabel = this.playbackMode === 'pluck' ? 'Triangle pluck' : 'Sine'
+			this.waveformLabel = this.playbackMode === 'pluck' ? 'Default pluck source' : 'Sine'
 			this.waveformDetailText = 'No uploaded image row is active yet.'
 			return
 		}
@@ -636,7 +678,7 @@ export class App extends LitElement {
 			return `${this.filterAttackMs} ms A · ${this.filterDecayMs} ms D · ${this.filterSustainPercent}% S · ${this.filterReleaseMs} ms R`
 		}
 		if (this.playbackMode === 'pluck') {
-			return 'Fast pluck decay · damped filter'
+			return `${this.pluckDampingPercent}% damping · ${this.pluckBrightnessPercent}% brightness · ${this.pluckNoiseBlendPercent}% noise`
 		}
 		return '40 ms attack · 120 ms release'
 	}

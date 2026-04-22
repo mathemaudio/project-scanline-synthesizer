@@ -2,9 +2,12 @@ import { Spec } from '@shared/lll.lll'
 import { AdsrEnvelope } from './synth/AdsrEnvelope.lll'
 import { EffectsSettings } from './synth/EffectsSettings.lll'
 import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
+import { KarplusStrongPluckVoice } from './synth/KarplusStrongPluckVoice.lll'
+import { PluckSettings } from './synth/PluckSettings.lll'
+import { PrimitiveSynthVoice } from './synth/PrimitiveSynthVoice.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
 
-@Spec('Provides a minimal browser synth voice engine that can switch between raw playback, filter-envelope playback, and a damped pluck mode while using uploaded image-derived waveforms when available.')
+@Spec('Provides a minimal browser synth voice engine that can switch between raw playback, filter-envelope playback, and a Karplus-Strong pluck mode while using uploaded image-derived waveforms when available.')
 export class PrimitiveSynth {
 	private readonly attackDurationSeconds: number
 	private readonly releaseDurationSeconds: number
@@ -15,7 +18,7 @@ export class PrimitiveSynth {
 	private readonly cancelTimeout: (timeoutId: number) => void
 	private readonly adsrEnvelope = new AdsrEnvelope()
 	private audioContext: AudioContext | null = null
-	private readonly activeVoicesByFrequencyKey: Map<string, { frequencyHz: number, oscillator: OscillatorNode, gainNode: GainNode, filterNode: BiquadFilterNode | null, playbackMode: SynthPlaybackMode }> = new Map()
+	private readonly activeVoicesByFrequencyKey: Map<string, PrimitiveSynthVoice> = new Map()
 	private readonly chorusInputNodeByAudioContext: WeakMap<AudioContext, GainNode> = new WeakMap()
 	private readonly delayInputNodeByAudioContext: WeakMap<AudioContext, GainNode> = new WeakMap()
 	private pendingReadyTimeoutId: number | null = null
@@ -25,6 +28,7 @@ export class PrimitiveSynth {
 	private playbackMode: SynthPlaybackMode
 	private filterEnvelopeSettings: FilterEnvelopeSettings
 	private effectsSettings: EffectsSettings
+	private pluckSettings: PluckSettings
 	private portamentoSeconds: number
 	private lastMonophonicFrequencyHz: number | null = null
 
@@ -37,6 +41,7 @@ export class PrimitiveSynth {
 			playbackMode?: SynthPlaybackMode
 			filterEnvelopeSettings?: FilterEnvelopeSettings
 			effectsSettings?: EffectsSettings
+			pluckSettings?: PluckSettings
 			portamentoSeconds?: number
 			createAudioContext?: () => AudioContext | null
 			onStateChange?: (state: 'ready' | 'playing' | 'releasing' | 'unsupported') => void
@@ -52,6 +57,7 @@ export class PrimitiveSynth {
 		this.playbackMode = options.playbackMode ?? 'raw'
 		this.filterEnvelopeSettings = this.normalizeFilterEnvelopeSettings(options.filterEnvelopeSettings ?? this.createDefaultFilterEnvelopeSettings())
 		this.effectsSettings = this.normalizeEffectsSettings(options.effectsSettings ?? this.createDefaultEffectsSettings())
+		this.pluckSettings = this.normalizePluckSettings(options.pluckSettings ?? this.createDefaultPluckSettings())
 		this.portamentoSeconds = this.normalizePortamentoSeconds(options.portamentoSeconds ?? 0)
 		this.createAudioContext = options.createAudioContext ?? (() => this.createBrowserAudioContext())
 		this.onStateChange = options.onStateChange ?? null
@@ -69,7 +75,7 @@ export class PrimitiveSynth {
 		this.portamentoSeconds = this.normalizePortamentoSeconds(portamentoSeconds)
 	}
 
-	@Spec('Switches the synth between raw playback, filter-envelope playback, and damped pluck playback.')
+	@Spec('Switches the synth between raw playback, filter-envelope playback, and Karplus-Strong pluck playback.')
 	setPlaybackMode(playbackMode: SynthPlaybackMode) {
 		this.playbackMode = playbackMode
 	}
@@ -84,6 +90,12 @@ export class PrimitiveSynth {
 	setEffectsSettings(effectsSettings: EffectsSettings) {
 		this.effectsSettings = this.normalizeEffectsSettings(effectsSettings)
 		this.refreshEffectsRouting()
+	}
+
+	@Spec('Replaces the active Karplus-Strong pluck settings and updates any currently sounding pluck voices with the live damping and brightness values.')
+	setPluckSettings(pluckSettings: PluckSettings) {
+		this.pluckSettings = this.normalizePluckSettings(pluckSettings)
+		this.refreshActivePluckVoices()
 	}
 
 	@Spec('Replaces the default sine oscillator shape with one uploaded image row waveform or clears back to the built-in raw oscillator shape when null is provided.')
@@ -162,6 +174,24 @@ export class PrimitiveSynth {
 		return new (maybeConstructor as new () => AudioContext)()
 	}
 
+	@Spec('Returns the default pluck settings used when callers do not provide any explicit Karplus-Strong shaping values.')
+	private createDefaultPluckSettings(): PluckSettings {
+		return {
+			damping: 0.58,
+			brightness: 0.72,
+			noiseBlend: 0.18
+		}
+	}
+
+	@Spec('Clamps one pluck-settings object into stable musical ranges before the synth uses it for Karplus-Strong playback.')
+	private normalizePluckSettings(pluckSettings: PluckSettings): PluckSettings {
+		return {
+			damping: Math.max(0, Math.min(1, pluckSettings.damping)),
+			brightness: Math.max(0, Math.min(1, pluckSettings.brightness)),
+			noiseBlend: Math.max(0, Math.min(1, pluckSettings.noiseBlend))
+		}
+	}
+
 	@Spec('Returns the default filter-envelope settings used when callers do not provide any explicit filter shaping values.')
 	private createDefaultFilterEnvelopeSettings(): FilterEnvelopeSettings {
 		return {
@@ -231,97 +261,93 @@ export class PrimitiveSynth {
 			if (this.activeVoicesByFrequencyKey.has(frequencyKey)) {
 				continue
 			}
-
-			const oscillator = audioContext.createOscillator()
-			const voiceNodes = this.createVoiceNodes(audioContext, frequencyHz)
-			this.configureOscillatorWaveform(oscillator, audioContext)
-			this.scheduleOscillatorFrequencyStart(oscillator, frequencyHz, audioContext.currentTime)
-			voiceNodes.gainNode.gain.cancelScheduledValues(audioContext.currentTime)
-			voiceNodes.gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime)
-			this.scheduleGainEnvelope(voiceNodes.gainNode, audioContext.currentTime)
-			this.scheduleFilterEnvelope(voiceNodes.filterNode, frequencyHz, audioContext.currentTime)
-			oscillator.connect(voiceNodes.inputNode)
-			this.connectVoiceOutput(voiceNodes.outputNode, audioContext)
-			this.trackVoiceEnd(frequencyKey, oscillator, voiceNodes.gainNode, voiceNodes.filterNode)
-			oscillator.start(audioContext.currentTime)
-			this.activeVoicesByFrequencyKey.set(frequencyKey, {
-				frequencyHz,
-				oscillator,
-				gainNode: voiceNodes.gainNode,
-				filterNode: voiceNodes.filterNode,
-				playbackMode: this.playbackMode
-			})
+			const voice = this.startVoice(audioContext, frequencyHz, frequencyKey)
+			this.activeVoicesByFrequencyKey.set(frequencyKey, voice)
 		}
 
 		this.emitStateChange('playing')
 	}
 
-	@Spec('Builds the audio-node chain for one voice according to the active playback mode.')
-	private createVoiceNodes(audioContext: AudioContext, frequencyHz: number): { gainNode: GainNode, filterNode: BiquadFilterNode | null, inputNode: AudioNode, outputNode: AudioNode } {
-		const gainNode = audioContext.createGain()
-		if (this.playbackMode === 'raw') {
+	@Spec('Starts one new voice according to the active playback mode and returns the tracked voice object stored by the synth.')
+	private startVoice(audioContext: AudioContext, frequencyHz: number, frequencyKey: string): PrimitiveSynthVoice {
+		if (this.playbackMode === 'pluck') {
+			const pluckVoice = new KarplusStrongPluckVoice({
+				audioContext,
+				frequencyHz,
+				pluckSettings: this.pluckSettings,
+				waveformSamples: this.waveformSamples,
+				onEnded: () => this.onPluckVoiceEnded(frequencyKey)
+			})
+			const gainNode = pluckVoice.getGainNode()
+			gainNode.gain.cancelScheduledValues(audioContext.currentTime)
+			gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime)
+			gainNode.gain.linearRampToValueAtTime(0.18, audioContext.currentTime + 0.003)
+			this.connectVoiceOutput(pluckVoice.getOutputNode(), audioContext)
 			return {
+				frequencyHz,
 				gainNode,
+				playbackMode: this.playbackMode,
+				oscillator: null,
 				filterNode: null,
-				inputNode: gainNode,
-				outputNode: gainNode
+				pluckVoice
 			}
 		}
-
-		const filterNode = audioContext.createBiquadFilter()
-		filterNode.type = 'lowpass'
-		if (this.playbackMode === 'cutoff') {
-			filterNode.frequency.value = this.filterEnvelopeSettings.baseCutoffHz
-			filterNode.Q.value = this.filterEnvelopeSettings.resonance
-		} else {
-			filterNode.frequency.value = this.calculatePluckBrightCutoffHz(frequencyHz)
-			filterNode.Q.value = 0.9
-		}
-		filterNode.connect(gainNode)
+		const oscillator = audioContext.createOscillator()
+		const voiceNodes = this.createOscillatorVoiceNodes(audioContext)
+		this.configureOscillatorWaveform(oscillator, audioContext)
+		this.scheduleOscillatorFrequencyStart(oscillator, frequencyHz, audioContext.currentTime)
+		voiceNodes.gainNode.gain.cancelScheduledValues(audioContext.currentTime)
+		voiceNodes.gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime)
+		this.scheduleGainEnvelope(voiceNodes.gainNode, audioContext.currentTime)
+		this.scheduleFilterEnvelope(voiceNodes.filterNode, audioContext.currentTime)
+		oscillator.connect(voiceNodes.inputNode)
+		this.connectVoiceOutput(voiceNodes.outputNode, audioContext)
+		this.trackOscillatorVoiceEnd(frequencyKey, oscillator, voiceNodes.gainNode, voiceNodes.filterNode)
+		oscillator.start(audioContext.currentTime)
 		return {
-			gainNode,
-			filterNode,
-			inputNode: filterNode,
-			outputNode: gainNode
+			frequencyHz,
+			gainNode: voiceNodes.gainNode,
+			playbackMode: this.playbackMode,
+			oscillator,
+			filterNode: voiceNodes.filterNode,
+			pluckVoice: null
 		}
 	}
 
-	@Spec('Applies the amplitude envelope for one new voice according to the active playback mode.')
-	private scheduleGainEnvelope(gainNode: GainNode, startTime: number) {
-		if (this.playbackMode === 'pluck') {
-			gainNode.gain.linearRampToValueAtTime(0.22, startTime + 0.005)
-			gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.36)
-			return
+	@Spec('Builds the oscillator audio-node chain for one raw or cutoff voice according to the active playback mode.')
+	private createOscillatorVoiceNodes(audioContext: AudioContext): { gainNode: GainNode, filterNode: BiquadFilterNode | null, inputNode: AudioNode, outputNode: AudioNode } {
+		const gainNode = audioContext.createGain()
+		if (this.playbackMode === 'raw') {
+			return { gainNode, filterNode: null, inputNode: gainNode, outputNode: gainNode }
 		}
+		const filterNode = audioContext.createBiquadFilter()
+		filterNode.type = 'lowpass'
+		filterNode.frequency.value = this.filterEnvelopeSettings.baseCutoffHz
+		filterNode.Q.value = this.filterEnvelopeSettings.resonance
+		filterNode.connect(gainNode)
+		return { gainNode, filterNode, inputNode: filterNode, outputNode: gainNode }
+	}
+
+	@Spec('Applies the amplitude envelope for one new oscillator voice according to the active playback mode.')
+	private scheduleGainEnvelope(gainNode: GainNode, startTime: number) {
 		gainNode.gain.linearRampToValueAtTime(0.18, startTime + this.attackDurationSeconds)
 	}
 
-	@Spec('Applies the playback-mode-specific filter envelope for one new voice when the mode uses a filter stage.')
-	private scheduleFilterEnvelope(filterNode: BiquadFilterNode | null, frequencyHz: number, startTime: number) {
-		if (filterNode === null) {
+	@Spec('Applies the cutoff ADSR for one new cutoff-mode oscillator voice when the mode uses a filter stage.')
+	private scheduleFilterEnvelope(filterNode: BiquadFilterNode | null, startTime: number) {
+		if (filterNode === null || this.playbackMode !== 'cutoff') {
 			return
 		}
-		if (this.playbackMode === 'cutoff') {
-			const sustainCutoffHz = this.calculateFilterSustainCutoffHz()
-			this.adsrEnvelope.scheduleAttackDecay(filterNode.frequency, {
-				startTime,
-				startValue: this.filterEnvelopeSettings.baseCutoffHz,
-				peakValue: this.filterEnvelopeSettings.peakCutoffHz,
-				sustainValue: sustainCutoffHz,
-				attackSeconds: this.filterEnvelopeSettings.attackSeconds,
-				decaySeconds: this.filterEnvelopeSettings.decaySeconds
-			})
-			filterNode.Q.setValueAtTime(this.filterEnvelopeSettings.resonance, startTime)
-			return
-		}
+		const sustainCutoffHz = this.calculateFilterSustainCutoffHz()
 		this.adsrEnvelope.scheduleAttackDecay(filterNode.frequency, {
 			startTime,
-			startValue: this.calculatePluckBrightCutoffHz(frequencyHz),
-			peakValue: this.calculatePluckBrightCutoffHz(frequencyHz),
-			sustainValue: this.calculatePluckSettledCutoffHz(frequencyHz),
-			attackSeconds: 0,
-			decaySeconds: 0.26
+			startValue: this.filterEnvelopeSettings.baseCutoffHz,
+			peakValue: this.filterEnvelopeSettings.peakCutoffHz,
+			sustainValue: sustainCutoffHz,
+			attackSeconds: this.filterEnvelopeSettings.attackSeconds,
+			decaySeconds: this.filterEnvelopeSettings.decaySeconds
 		})
+		filterNode.Q.setValueAtTime(this.filterEnvelopeSettings.resonance, startTime)
 	}
 
 	@Spec('Returns the sustain cutoff implied by the current filter-envelope settings.')
@@ -329,17 +355,6 @@ export class PrimitiveSynth {
 		const cutoffRange = this.filterEnvelopeSettings.peakCutoffHz - this.filterEnvelopeSettings.baseCutoffHz
 		return this.filterEnvelopeSettings.baseCutoffHz + cutoffRange * this.filterEnvelopeSettings.sustainLevel
 	}
-
-	@Spec('Estimates a bright low-pass cutoff for the pluck mode so higher notes stay lively without becoming brittle.')
-	private calculatePluckBrightCutoffHz(frequencyHz: number): number {
-		return Math.min(9000, Math.max(900, frequencyHz * 12))
-	}
-
-	@Spec('Estimates the darker settled cutoff that the pluck mode falls toward as the note damps out.')
-	private calculatePluckSettledCutoffHz(frequencyHz: number): number {
-		return Math.min(3200, Math.max(320, frequencyHz * 3.4))
-	}
-
 	@Spec('Releases every active voice and schedules the synth to return visibly to ready after the fade completes.')
 	private releaseVoices(): boolean {
 		this.cancelPendingReadyState()
@@ -456,17 +471,19 @@ export class PrimitiveSynth {
 			this.emitStateChange('playing')
 			return true
 		}
-		voice.oscillator.frequency.cancelScheduledValues(audioContext.currentTime)
-		voice.oscillator.frequency.setValueAtTime(voice.oscillator.frequency.value, audioContext.currentTime)
-		if (this.portamentoSeconds === 0) {
-			voice.oscillator.frequency.setValueAtTime(nextFrequencyHz, audioContext.currentTime)
-		} else {
-			voice.oscillator.frequency.linearRampToValueAtTime(nextFrequencyHz, audioContext.currentTime + this.portamentoSeconds)
+		if (voice.oscillator !== null) {
+			voice.oscillator.frequency.cancelScheduledValues(audioContext.currentTime)
+			voice.oscillator.frequency.setValueAtTime(voice.oscillator.frequency.value, audioContext.currentTime)
+			if (this.portamentoSeconds === 0) {
+				voice.oscillator.frequency.setValueAtTime(nextFrequencyHz, audioContext.currentTime)
+			} else {
+				voice.oscillator.frequency.linearRampToValueAtTime(nextFrequencyHz, audioContext.currentTime + this.portamentoSeconds)
+			}
+		}
+		if (voice.pluckVoice !== null) {
+			voice.pluckVoice.retune(nextFrequencyHz, this.waveformSamples)
 		}
 		voice.frequencyHz = nextFrequencyHz
-		if (voice.filterNode !== null && voice.playbackMode === 'pluck') {
-			voice.filterNode.frequency.value = this.calculatePluckSettledCutoffHz(nextFrequencyHz)
-		}
 		this.activeVoicesByFrequencyKey.delete(currentFrequencyKey)
 		this.activeVoicesByFrequencyKey.set(nextFrequencyKey, voice)
 		this.emitStateChange('playing')
@@ -474,12 +491,12 @@ export class PrimitiveSynth {
 	}
 
 	@Spec('Returns the release fade duration that best matches one voice based on how it was created.')
-	private calculateReleaseFadeDurationSeconds(voice: { playbackMode: SynthPlaybackMode }): number {
+	private calculateReleaseFadeDurationSeconds(voice: PrimitiveSynthVoice): number {
 		if (voice.playbackMode === 'cutoff') {
 			return Math.max(this.releaseDurationSeconds, this.filterEnvelopeSettings.releaseSeconds)
 		}
 		if (voice.playbackMode === 'pluck') {
-			return Math.max(this.releaseDurationSeconds, 0.18)
+			return Math.max(this.releaseDurationSeconds, 0.12 + this.pluckSettings.damping * 0.12)
 		}
 		return this.releaseDurationSeconds
 	}
@@ -562,11 +579,7 @@ export class PrimitiveSynth {
 	}
 
 	@Spec('Applies a short fade and stop time to a voice so repeated triggers do not click or hang while also releasing any active filter sweep.')
-	private retireVoice(
-		voice: { frequencyHz: number, oscillator: OscillatorNode, gainNode: GainNode, filterNode: BiquadFilterNode | null, playbackMode: SynthPlaybackMode },
-		currentTime: number,
-		fadeDurationSeconds: number
-	) {
+	private retireVoice(voice: PrimitiveSynthVoice, currentTime: number, fadeDurationSeconds: number) {
 		if (voice.filterNode !== null && voice.playbackMode === 'cutoff') {
 			this.adsrEnvelope.scheduleRelease(voice.filterNode.frequency, {
 				startTime: currentTime,
@@ -575,38 +588,45 @@ export class PrimitiveSynth {
 				releaseSeconds: this.filterEnvelopeSettings.releaseSeconds
 			})
 		}
-		if (voice.filterNode !== null && voice.playbackMode === 'pluck') {
-			this.adsrEnvelope.scheduleRelease(voice.filterNode.frequency, {
-				startTime: currentTime,
-				startValue: Math.max(voice.filterNode.frequency.value, this.calculatePluckSettledCutoffHz(voice.frequencyHz)),
-				endValue: this.calculatePluckSettledCutoffHz(voice.frequencyHz),
-				releaseSeconds: 0.18
-			})
-		}
 		const safeStartGain = Math.max(voice.gainNode.gain.value, 0.0001)
 		voice.gainNode.gain.cancelScheduledValues(currentTime)
 		voice.gainNode.gain.setValueAtTime(safeStartGain, currentTime)
 		voice.gainNode.gain.exponentialRampToValueAtTime(0.0001, currentTime + fadeDurationSeconds)
-		voice.oscillator.stop(currentTime + fadeDurationSeconds + 0.01)
+		voice.pluckVoice?.release(currentTime, fadeDurationSeconds)
+		voice.oscillator?.stop(currentTime + fadeDurationSeconds + 0.01)
+		if (voice.pluckVoice !== null) {
+			this.scheduleTimeout(() => voice.pluckVoice?.stopImmediately(), Math.ceil((fadeDurationSeconds + 0.02) * 1000))
+		}
 	}
 
 	@Spec('Configures one oscillator to use either the default built-in tone or the currently selected image-derived waveform samples.')
 	private configureOscillatorWaveform(oscillator: OscillatorNode, audioContext: AudioContext) {
 		if (this.waveformSamples === null || this.waveformSamples.length === 0) {
-			oscillator.type = this.playbackMode === 'pluck' ? 'triangle' : 'sine'
+			oscillator.type = 'sine'
 			return
 		}
 		const periodicWave = this.createPeriodicWaveFromSamples(audioContext, this.waveformSamples)
 		oscillator.setPeriodicWave(periodicWave)
 	}
 
-	@Spec('Refreshes every currently sounding oscillator so scanline row changes can retimbre held notes without retriggering them.')
+	@Spec('Refreshes every currently sounding oscillator or pluck excitation source so scanline row changes can retimbre held notes without retriggering them.')
 	private refreshActiveVoiceWaveforms() {
 		if (this.audioContext === null || this.activeVoicesByFrequencyKey.size === 0) {
 			return
 		}
 		for (const voice of this.activeVoicesByFrequencyKey.values()) {
-			this.configureOscillatorWaveform(voice.oscillator, this.audioContext)
+			if (voice.oscillator !== null) {
+				this.configureOscillatorWaveform(voice.oscillator, this.audioContext)
+				continue
+			}
+			voice.pluckVoice?.retune(voice.frequencyHz, this.waveformSamples)
+		}
+	}
+
+	@Spec('Refreshes active Karplus-Strong voices with the latest live damping and brightness settings while leaving their current excitation source intact.')
+	private refreshActivePluckVoices() {
+		for (const voice of this.activeVoicesByFrequencyKey.values()) {
+			voice.pluckVoice?.updatePluckSettings(this.pluckSettings)
 		}
 	}
 
@@ -616,15 +636,11 @@ export class PrimitiveSynth {
 			return
 		}
 		for (const voice of this.activeVoicesByFrequencyKey.values()) {
-			if (voice.filterNode === null) {
+			if (voice.filterNode === null || voice.playbackMode !== 'cutoff') {
 				continue
 			}
-			if (voice.playbackMode === 'cutoff') {
-				voice.filterNode.Q.value = this.filterEnvelopeSettings.resonance
-				voice.filterNode.frequency.value = this.calculateFilterSustainCutoffHz()
-				continue
-			}
-			voice.filterNode.frequency.value = this.calculatePluckSettledCutoffHz(voice.frequencyHz)
+			voice.filterNode.Q.value = this.filterEnvelopeSettings.resonance
+			voice.filterNode.frequency.value = this.calculateFilterSustainCutoffHz()
 		}
 	}
 
@@ -648,8 +664,8 @@ export class PrimitiveSynth {
 		return audioContext.createPeriodicWave(real, imaginary, { disableNormalization: false })
 	}
 
-	@Spec('Disconnects finished nodes and prevents stale voice endings from overriding newer active note state.')
-	private trackVoiceEnd(frequencyKey: string, oscillator: OscillatorNode, gainNode: GainNode, filterNode: BiquadFilterNode | null) {
+	@Spec('Disconnects finished oscillator nodes and prevents stale voice endings from overriding newer active note state.')
+	private trackOscillatorVoiceEnd(frequencyKey: string, oscillator: OscillatorNode, gainNode: GainNode, filterNode: BiquadFilterNode | null) {
 		oscillator.onended = () => {
 			oscillator.disconnect()
 			filterNode?.disconnect()
@@ -661,6 +677,18 @@ export class PrimitiveSynth {
 			if (this.activeVoicesByFrequencyKey.size === 0 && this.pendingReadyTimeoutId === null) {
 				this.emitStateChange('ready')
 			}
+		}
+	}
+
+	@Spec('Clears one finished Karplus-Strong voice from the active map when its processor decides the string energy is exhausted.')
+	private onPluckVoiceEnded(frequencyKey: string) {
+		const activeVoice = this.activeVoicesByFrequencyKey.get(frequencyKey)
+		if (activeVoice?.pluckVoice === null || activeVoice === undefined) {
+			return
+		}
+		this.activeVoicesByFrequencyKey.delete(frequencyKey)
+		if (this.activeVoicesByFrequencyKey.size === 0 && this.pendingReadyTimeoutId === null) {
+			this.emitStateChange('ready')
 		}
 	}
 

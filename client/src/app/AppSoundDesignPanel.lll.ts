@@ -34,6 +34,20 @@ export class AppSoundDesignPanel {
 			`
 	}
 
+	@Spec('Renders one labeled pluck slider row for the Karplus-Strong playback mode settings panel.')
+	public renderPluckSettingSlider(inputId: string, label: string, name: string, value: number, detail: string): TemplateResult {
+		return html`
+				<label class="setting-control" for=${inputId}>
+					<span class="setting-label-row">
+						<span class="status-label">${label}</span>
+						<span class="setting-value">${value}%</span>
+					</span>
+					<input id=${inputId} class="settings-slider" type="range" name=${name} min="0" max="100" step="1" .value=${String(value)} @input=${this.source.onPluckSettingChange} />
+					<span class="settings-help">${detail}</span>
+				</label>
+			`
+	}
+
 	@Spec('Renders the two compact octave shift buttons placed at the lower-left corner of the status column.')
 	public renderKeyboardOctaveControls(): TemplateResult {
 		return html`
@@ -100,8 +114,13 @@ export class AppSoundDesignPanel {
 							<div class="status-label">Playback settings</div>
 							<div id="playback-mode-value" class="plate-value">${this.source.getPlaybackModeLabel()}</div>
 						</div>
-						<div id="playback-settings-mode-copy" class="panel-copy">Pluck mode uses a bright transient, quick damping, and a low-pass settle to approximate a string-like response.</div>
-						<div id="playback-settings-empty" class="settings-empty">No extra controls yet. This mode uses a fixed damped-pluck recipe for now.</div>
+						<div id="playback-settings-mode-copy" class="panel-copy">Pluck mode now runs a Karplus–Strong string loop per note, using the uploaded waveform row as excitation and blending in noise when desired.</div>
+						<div id="pluck-settings-summary" class="settings-summary">${this.source.getEnvelopeSummary()}</div>
+						<div class="settings-grid">
+							${this.renderPluckSettingSlider('pluck-damping-slider', 'Damping', 'pluck-damping-percent', this.source.pluckDampingPercent, 'Controls sustain length and loop energy loss.')}
+							${this.renderPluckSettingSlider('pluck-brightness-slider', 'Brightness', 'pluck-brightness-percent', this.source.pluckBrightnessPercent, 'Controls high-frequency retention in the string loop.')}
+							${this.renderPluckSettingSlider('pluck-noise-blend-slider', 'Noise blend', 'pluck-noise-blend-percent', this.source.pluckNoiseBlendPercent, 'Crossfades between uploaded waveform excitation and broadband noise.')}
+						</div>
 					</section>
 				`
 		}

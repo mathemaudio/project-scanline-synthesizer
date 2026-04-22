@@ -254,8 +254,8 @@ export class PrimitiveSynthTest {
 		return { didStart, gainCount, delayCount, activeVoiceCount }
 	}
 
-	@Scenario('pluck playback mode rebuilds held notes while staying on one active voice')
-	static async rebuildsHeldVoiceForPluckMode(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ rebuilt: boolean, activeVoiceCount: number, filterCount: number, oscillatorType: string }> {
+	@Scenario('pluck playback mode rebuilds held notes as a Karplus-Strong voice without using an oscillator')
+	static async rebuildsHeldVoiceForPluckMode(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ rebuilt: boolean, activeVoiceCount: number, scriptProcessorCount: number, oscillatorType: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		void subjectFactory
 		const fakeAudioContext = this.createFakeAudioContext()
@@ -268,14 +268,37 @@ export class PrimitiveSynthTest {
 
 		const rebuilt = await synth.rebuildNotes([261.625565])
 		const activeVoiceCount = synth.getActiveVoiceCount()
-		const filterCount = (fakeAudioContext as unknown as { filterCount: number }).filterCount
+		const scriptProcessorCount = (fakeAudioContext as unknown as { scriptProcessorCount: number }).scriptProcessorCount
 		const oscillatorType = (fakeAudioContext as unknown as { lastOscillatorType: string }).lastOscillatorType
 
 		assert(rebuilt === true, 'Expected held notes to rebuild successfully after switching to pluck mode')
 		assert(activeVoiceCount === 1, 'Expected one active voice to remain after rebuilding a single held note')
-		assert(filterCount >= 1, 'Expected pluck mode to route the rebuilt note through a filter stage')
-		assert(oscillatorType === 'triangle', 'Expected pluck mode without uploaded samples to switch the built-in oscillator to triangle')
-		return { rebuilt, activeVoiceCount, filterCount, oscillatorType }
+		assert(scriptProcessorCount >= 1, 'Expected pluck mode to allocate a ScriptProcessor-based Karplus-Strong voice')
+		assert(oscillatorType === 'sine', 'Expected Karplus-Strong pluck mode to stop relying on a triangle oscillator placeholder')
+		return { rebuilt, activeVoiceCount, scriptProcessorCount, oscillatorType }
+	}
+
+	@Scenario('pluck playback mode supports polyphonic independent strings with waveform excitation')
+	static async supportsPolyphonicKarplusStrongVoices(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ activeVoiceCount: number, scriptProcessorCount: number, periodicWaveCallCount: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			playbackMode: 'pluck',
+			monophonic: false,
+			createAudioContext: () => fakeAudioContext
+		})
+		synth.setWaveformSamples([-1, -0.25, 0.75, 1])
+		await synth.syncNotes([261.625565, 329.627557, 391.995436])
+		await waitFor(() => synth.getActiveVoiceCount() === 3, 'Expected one independent pluck string per held note in polyphonic pluck mode')
+		const activeVoiceCount = synth.getActiveVoiceCount()
+		const scriptProcessorCount = (fakeAudioContext as unknown as { scriptProcessorCount: number }).scriptProcessorCount
+		const periodicWaveCallCount = (fakeAudioContext as unknown as { periodicWaveCallCount: number }).periodicWaveCallCount
+		assert(activeVoiceCount === 3, 'Expected polyphonic pluck mode to keep three independent active strings for a three-note chord')
+		assert(scriptProcessorCount === 3, 'Expected each polyphonic pluck note to create its own ScriptProcessor-based string loop')
+		assert(periodicWaveCallCount === 0, 'Expected pluck mode to use waveform data as excitation instead of building oscillator periodic waves')
+		return { activeVoiceCount, scriptProcessorCount, periodicWaveCallCount }
 	}
 
 	@Scenario('missing audio context reports unsupported without starting voices')
@@ -332,11 +355,13 @@ export class PrimitiveSynthTest {
 			}
 		})
 		const fakeAudioContext = {
+			sampleRate: 48000,
 			lastOscillatorType: 'sine',
 			periodicWaveCallCount: 0,
 			filterCount: 0,
 			gainCount: 0,
 			delayCount: 0,
+			scriptProcessorCount: 0,
 			lastFilterQ: 0,
 			lastFrequencyRampTarget: 0,
 			lastFrequencyValue: 0,
@@ -420,6 +445,14 @@ export class PrimitiveSynthTest {
 					connect: () => {},
 					disconnect: () => {}
 				} as unknown as GainNode
+			},
+			createScriptProcessor: () => {
+				fakeAudioContext.scriptProcessorCount += 1
+				return {
+					connect: () => {},
+					disconnect: () => {},
+					onaudioprocess: null
+				} as unknown as ScriptProcessorNode
 			}
 		}
 		return fakeAudioContext as unknown as AudioContext
