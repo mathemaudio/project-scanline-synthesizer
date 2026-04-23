@@ -158,15 +158,15 @@ export class AppSoundDesignPanel {
 					<section class="status-grid" aria-label="Keyboard synth status">
 						<div class="status-table-card">
 							<div class="status-table">
-								<div class="status-table-row"><div class="status-label">Waveform</div><div id="waveform-value" class="status-value">${this.source.waveformLabel}</div></div>
 								<div class="status-table-row status-table-row-wide"><div class="status-label">Envelope</div><div id="envelope-value" class="status-value">${this.source.getEnvelopeSummary()}</div></div>
-								<div class="status-table-row"><div class="status-label">Voice mode</div><div id="voice-mode-value" class="status-value">${this.source.isMonophonic ? 'Monophonic' : 'Polyphonic'}</div></div>
+								<div class="status-table-row"><div class="status-label">Voice</div><div id="voice-mode-value" class="status-value">${this.source.isMonophonic ? 'Mono' : 'Poly'}</div></div>
 								<div class="status-table-row"><div class="status-label">Voices</div><div id="sounding-voices-value" class="status-value">${this.source.soundingVoiceCount}</div></div>
-								<div class="status-table-row"><div class="status-label">Active key</div><div id="active-key-value" class="status-value">${this.source.activeKeyLabel}</div></div>
-								<div class="status-table-row"><div class="status-label">Active note</div><div id="active-note-value" class="status-value">${this.source.activeNoteLabel}</div></div>
+								<div class="status-table-row"><div class="status-label">Key</div><div id="active-key-value" class="status-value">${this.source.activeKeyLabel}</div></div>
+								<div class="status-table-row"><div class="status-label">Note</div><div id="active-note-value" class="status-value">${this.source.activeNoteLabel}</div></div>
 								<div class="status-table-row"><div class="status-label">Pitch</div><div id="pitch-value" class="status-value">${this.source.pitchLabel}</div></div>
 								<div class="status-table-row"><div class="status-label">State</div><div id="note-state-value" class="status-value">${this.source.noteStateLabel}</div></div>
-								<div class="status-table-row"><div class="status-label">Trigger count</div><div id="trigger-count-value" class="status-value">${this.source.triggerCount}</div></div>
+								<div class="status-table-row"><div class="status-label">Hits</div><div id="trigger-count-value" class="status-value">${this.source.triggerCount}</div></div>
+								<div class="status-table-row"><div class="status-label">Row</div><div id="waveform-value" class="status-value">${this.source.waveformLabel}</div></div>
 							</div>
 						</div>
 						${this.renderEffectsPanel()}

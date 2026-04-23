@@ -25,7 +25,7 @@ export class AppTest {
 			const activeKey = this.readText(app, '#active-key-value')
 			const playbackMode = this.readText(app, '#playback-mode-value')
 
-			assert(voiceMode === 'Monophonic', 'Expected the app to start in monophonic mode by default')
+			assert(voiceMode === 'Mono', 'Expected the app to start in mono voice mode by default')
 			assert(soundingVoices === '1', 'Expected only one sounding voice to be visible in default monophonic mode')
 			assert(activeKey === 'W', 'Expected the newest held key to become active')
 			assert(playbackMode === 'Cutoff', 'Expected cutoff playback mode to be selected by default')
@@ -62,10 +62,10 @@ export class AppTest {
 			const portamentoValue = this.readTextFromShadowHost(app, '#portamento-slider', '.value')
 
 			assert(toggleValue === 'On', 'Expected the visible monophonic toggle label to turn On')
-			assert(voiceMode === 'Monophonic', 'Expected voice mode card to show Monophonic')
+			assert(voiceMode === 'Mono', 'Expected voice card to show Mono')
 			assert(soundingVoices === '1', 'Expected only one sounding voice in monophonic mode with overlapping keys held')
 			assert(noteState === 'Playing', 'Expected note state to remain visibly Playing while a note is sounding')
-			assert(portamentoValue === '50 ms', 'Expected the monophonic card to show the new 50 ms default portamento value')
+			assert(portamentoValue === '87 ms', 'Expected the monophonic card to show the screenshot default 87 ms portamento value')
 			return { toggleValue, voiceMode, soundingVoices, noteState, portamentoValue }
 		} finally {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))

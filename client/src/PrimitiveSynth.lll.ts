@@ -225,12 +225,12 @@ export class PrimitiveSynth {
 	@Spec('Returns the default chorus and delay settings used when callers do not provide any explicit effects values.')
 	private createDefaultEffectsSettings(): EffectsSettings {
 		return {
-			chorusMix: 0.22,
-			chorusFeedback: 0.08,
-			chorusDepthMs: 8,
-			delayMix: 0.18,
-			delayFeedback: 0.24,
-			delayTimeMs: 280
+			chorusMix: 0.43,
+			chorusFeedback: 0.25,
+			chorusDepthMs: 10,
+			delayMix: 0.3,
+			delayFeedback: 0.6,
+			delayTimeMs: 260
 		}
 	}
 

@@ -27,13 +27,13 @@ export class AppShellRendererTest {
 		return {
 			playbackMode: 'cutoff',
 			isMonophonic: true,
-			portamentoMs: 50,
+			portamentoMs: 87,
 			appSoundDesignPanel: { renderStatusUploadPanel: () => ({ strings: ['panel'], values: [] } as unknown) },
 			onMonophonicToggle: () => undefined,
 			onPortamentoInput: () => undefined,
 			getKeyboardUpperRowGuide: () => 'upper guide',
 			getKeyboardLowerRowGuide: () => 'lower guide',
-			getPortamentoValueLabel: () => '50 ms',
+			getPortamentoValueLabel: () => '87 ms',
 			renderPlaybackModeOption: () => ({ strings: ['option'], values: [] } as unknown)
 		} as unknown as App
 	}

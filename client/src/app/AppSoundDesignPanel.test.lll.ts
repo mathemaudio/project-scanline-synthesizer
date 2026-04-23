@@ -41,12 +41,12 @@ export class AppSoundDesignPanelTest {
 	private static createAppStub(playbackMode: 'cutoff' | 'pluck' = 'cutoff'): App {
 		return {
 			playbackMode,
-			chorusMixPercent: 22,
-			chorusFeedbackPercent: 8,
-			chorusDepthMs: 8,
-			delayMixPercent: 18,
-			delayFeedbackPercent: 24,
-			delayTimeMs: 280,
+			chorusMixPercent: 43,
+			chorusFeedbackPercent: 25,
+			chorusDepthMs: 10,
+			delayMixPercent: 30,
+			delayFeedbackPercent: 60,
+			delayTimeMs: 260,
 			filterAttackMs: 40,
 			filterDecayMs: 725,
 			filterSustainPercent: 15,

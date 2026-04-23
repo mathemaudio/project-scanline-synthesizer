@@ -49,7 +49,7 @@ export class App extends LitElement {
 	@state()
 	public isMonophonic: boolean = true
 	@state()
-	public portamentoMs: number = 50
+	public portamentoMs: number = 87
 
 	@state()
 	public soundingVoiceCount: number = 0
@@ -103,17 +103,17 @@ export class App extends LitElement {
 	public filterResonance: number = 13
 
 	@state()
-	public chorusMixPercent: number = 22
+	public chorusMixPercent: number = 43
 	@state()
-	public chorusFeedbackPercent: number = 8
+	public chorusFeedbackPercent: number = 25
 	@state()
-	public chorusDepthMs: number = 8
+	public chorusDepthMs: number = 10
 	@state()
-	public delayMixPercent: number = 18
+	public delayMixPercent: number = 30
 	@state()
-	public delayFeedbackPercent: number = 24
+	public delayFeedbackPercent: number = 60
 	@state()
-	public delayTimeMs: number = 280
+	public delayTimeMs: number = 260
 	@state()
 	public waveformCrossfadePercent: number = 10
 	@state()
@@ -143,19 +143,19 @@ export class App extends LitElement {
 			resonance: 13
 		},
 		effectsSettings: {
-			chorusMix: 0.22,
-			chorusFeedback: 0.08,
-			chorusDepthMs: 8,
-			delayMix: 0.18,
-			delayFeedback: 0.24,
-			delayTimeMs: 280
+			chorusMix: 0.43,
+			chorusFeedback: 0.25,
+			chorusDepthMs: 10,
+			delayMix: 0.3,
+			delayFeedback: 0.6,
+			delayTimeMs: 260
 		},
 		pluckSettings: {
 			damping: 0.58,
 			brightness: 0.72,
 			noiseBlend: 0.18
 		},
-		portamentoSeconds: 0.05,
+		portamentoSeconds: 0.087,
 		onStateChange: (state) => this.onSynthStateChange(state)
 	})
 
