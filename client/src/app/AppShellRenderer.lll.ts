@@ -123,18 +123,51 @@ export class AppShellRenderer {
 		])
 	}
 
-	@Spec('Renders one compact piano keyboard using labeled white and black keys for the mapped QWERTY guide.')
+	@Spec('Renders one compact piano keyboard using layered white and black keys so the black keys sit above the seams between white keys.')
 	public renderPianoKeyboard(keys: Array<{ noteLabel: string, qwertyLabel: string, tone: 'white' | 'black' }>): TemplateResult {
+		const whiteKeys = keys.filter((key) => key.tone === 'white')
+		const blackKeys = this.getBlackKeysWithWhiteIndex(keys)
 		return html`
-			<div class="piano-keyboard" aria-hidden="true">
-				${keys.map((key) => html`
-					<div class=${`piano-key piano-key-${key.tone}`}>
-						<span class="piano-note-label">${key.noteLabel}</span>
-						<span class="piano-qwerty-label">${key.qwertyLabel}</span>
-					</div>
-				`)}
+			<div class="piano-keyboard" style=${`--white-key-count: ${whiteKeys.length};`} aria-hidden="true">
+				<div class="piano-white-keys">
+					${whiteKeys.map((key) => html`
+						<div class="piano-key piano-key-white">
+							<span class="piano-note-label">${key.noteLabel}</span>
+							<span class="piano-qwerty-label">${key.qwertyLabel}</span>
+						</div>
+					`)}
+				</div>
+				<div class="piano-black-keys">
+					${blackKeys.map((key) => html`
+						<div class="piano-key piano-key-black" style=${this.getBlackKeyInlineStyle(key.whiteIndexAfterPreviousWhite)}>
+							<span class="piano-note-label">${key.noteLabel}</span>
+							<span class="piano-qwerty-label">${key.qwertyLabel}</span>
+						</div>
+					`)}
+				</div>
 			</div>
 		`
+	}
+
+	@Spec('Collects black keys with the index of the white-key boundary they should straddle in the layered piano layout.')
+	private getBlackKeysWithWhiteIndex(keys: Array<{ noteLabel: string, qwertyLabel: string, tone: 'white' | 'black' }>): Array<{ noteLabel: string, qwertyLabel: string, whiteIndexAfterPreviousWhite: number }> {
+		let whiteKeyCount = 0
+		return keys.flatMap((key) => {
+			if (key.tone === 'white') {
+				whiteKeyCount += 1
+				return []
+			}
+			return [{
+				noteLabel: key.noteLabel,
+				qwertyLabel: key.qwertyLabel,
+				whiteIndexAfterPreviousWhite: whiteKeyCount
+			}]
+		})
+	}
+
+	@Spec('Builds the inline position for one black key so it centers over the seam between adjacent white keys.')
+	private getBlackKeyInlineStyle(whiteIndexAfterPreviousWhite: number): string {
+		return `left: calc((100% / var(--white-key-count)) * ${whiteIndexAfterPreviousWhite});`
 	}
 
 	@Spec('Renders one visible playback-mode radio option inside the compact selector block.')

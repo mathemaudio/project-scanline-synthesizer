@@ -36,8 +36,12 @@ export class AppShellRendererTest {
 		assert(renderMarkup.includes('Lower keyboard'), 'Expected the keyboard guide to relabel the lower row as a lower keyboard')
 		assert(upperMarkup.includes('piano-keyboard'), 'Expected the upper keyboard guide template to include piano keyboard markup')
 		assert(lowerMarkup.includes('piano-keyboard'), 'Expected the lower keyboard guide template to include piano keyboard markup')
-		assert(upperTemplate.values.length === 1, 'Expected the upper piano keyboard template to expose one mapped key list value')
-		assert(lowerTemplate.values.length === 1, 'Expected the lower piano keyboard template to expose one mapped key list value')
+		assert(upperMarkup.includes('piano-white-keys'), 'Expected the upper piano keyboard template to render a white-key layer')
+		assert(upperMarkup.includes('piano-black-keys'), 'Expected the upper piano keyboard template to render a black-key overlay layer')
+		assert(lowerMarkup.includes('piano-white-keys'), 'Expected the lower piano keyboard template to render a white-key layer')
+		assert(lowerMarkup.includes('piano-black-keys'), 'Expected the lower piano keyboard template to render a black-key overlay layer')
+		assert(upperTemplate.values.length === 3, 'Expected the upper piano keyboard template to expose style, white-key list, and black-key list values')
+		assert(lowerTemplate.values.length === 3, 'Expected the lower piano keyboard template to expose style, white-key list, and black-key list values')
 		return {
 			upperValueCount: upperTemplate.values.length,
 			lowerValueCount: lowerTemplate.values.length,

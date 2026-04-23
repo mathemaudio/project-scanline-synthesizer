@@ -223,9 +223,7 @@ export class AppChromeStyleSheet {
 		}
 
 		.piano-keyboard {
-			display: flex;
-			align-items: flex-end;
-			gap: 2px;
+			position: relative;
 			min-width: 0;
 			overflow: hidden;
 			padding: 10px;
@@ -234,12 +232,25 @@ export class AppChromeStyleSheet {
 			box-shadow: inset 0 1px 0 rgba(255, 248, 230, 0.06);
 		}
 
+		.piano-white-keys {
+			display: grid;
+			grid-template-columns: repeat(var(--white-key-count), minmax(0, 1fr));
+			gap: 0;
+			align-items: stretch;
+		}
+
+		.piano-black-keys {
+			position: absolute;
+			inset: 10px 10px auto 10px;
+			height: 76px;
+			pointer-events: none;
+		}
+
 		.piano-key {
 			display: grid;
 			align-content: space-between;
 			justify-items: center;
 			gap: 8px;
-			min-height: 112px;
 			padding: 10px 6px 8px;
 			border-radius: 0 0 12px 12px;
 			box-sizing: border-box;
@@ -247,7 +258,7 @@ export class AppChromeStyleSheet {
 		}
 
 		.piano-key-white {
-			flex: 1.5 1 0;
+			min-height: 112px;
 			background: linear-gradient(180deg, rgba(255, 251, 243, 0.98), rgba(223, 207, 179, 0.96));
 			border: 1px solid rgba(108, 84, 62, 0.34);
 			box-shadow:
@@ -256,10 +267,11 @@ export class AppChromeStyleSheet {
 		}
 
 		.piano-key-black {
-			flex: 1 1 0;
+			position: absolute;
+			top: 0;
+			width: calc(100% / var(--white-key-count) * 0.62);
 			min-height: 76px;
-			margin-left: -6px;
-			margin-right: -6px;
+			transform: translateX(-50%);
 			padding-top: 8px;
 			padding-bottom: 6px;
 			border-radius: 0 0 10px 10px;
