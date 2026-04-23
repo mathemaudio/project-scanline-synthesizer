@@ -1,4 +1,3 @@
-// Temporary harmless edit for tool icon debugging; safe to revert.
 import './AppShellRenderer.lll'
 import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
 import { AppShellRenderer } from './AppShellRenderer.lll'
@@ -22,13 +21,41 @@ export class AppShellRendererTest {
 		return { stringCount: template.strings.length, selectedClassName, serializedValues }
 	}
 
+	@Scenario('keyboard guide renders piano keyboard markup for the mapped upper and lower rows')
+	static async rendersPianoKeyboardGuide(subjectFactory: SubjectFactory<AppShellRenderer>, scenario?: ScenarioParameter): Promise<{ upperValueCount: number, lowerValueCount: number, renderStringCount: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const renderer = new AppShellRenderer(this.createAppStub())
+		const renderTemplate = renderer.render()
+		const upperTemplate = renderer.renderUpperRowPianoKeyboard()
+		const lowerTemplate = renderer.renderLowerRowPianoKeyboard()
+		const renderMarkup = renderTemplate.strings.join('')
+		const upperMarkup = upperTemplate.strings.join('')
+		const lowerMarkup = lowerTemplate.strings.join('')
+		assert(renderMarkup.includes('Upper keyboard'), 'Expected the keyboard guide to relabel the upper row as an upper keyboard')
+		assert(renderMarkup.includes('Lower keyboard'), 'Expected the keyboard guide to relabel the lower row as a lower keyboard')
+		assert(upperMarkup.includes('piano-keyboard'), 'Expected the upper keyboard guide template to include piano keyboard markup')
+		assert(lowerMarkup.includes('piano-keyboard'), 'Expected the lower keyboard guide template to include piano keyboard markup')
+		assert(upperTemplate.values.length === 1, 'Expected the upper piano keyboard template to expose one mapped key list value')
+		assert(lowerTemplate.values.length === 1, 'Expected the lower piano keyboard template to expose one mapped key list value')
+		return {
+			upperValueCount: upperTemplate.values.length,
+			lowerValueCount: lowerTemplate.values.length,
+			renderStringCount: renderTemplate.strings.length
+		}
+	}
+
 	@Spec('Builds the minimal app stub needed by the shell renderer tests.')
 	private static createAppStub(): App {
 		return {
 			playbackMode: 'cutoff',
 			isMonophonic: true,
 			portamentoMs: 87,
-			appSoundDesignPanel: { renderStatusUploadPanel: () => ({ strings: ['panel'], values: [] } as unknown) },
+			keyboardBaseOctave: 3,
+			appSoundDesignPanel: {
+				renderStatusUploadPanel: () => ({ strings: ['panel'], values: [] } as unknown),
+				renderKeyboardOctaveControls: () => ({ strings: ['octave-controls'], values: [] } as unknown)
+			},
 			onMonophonicToggle: () => undefined,
 			onPortamentoInput: () => undefined,
 			getKeyboardUpperRowGuide: () => 'upper guide',

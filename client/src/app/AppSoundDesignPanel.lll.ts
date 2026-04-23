@@ -170,7 +170,6 @@ export class AppSoundDesignPanel {
 							</div>
 						</div>
 						${this.renderEffectsPanel()}
-						${this.renderKeyboardOctaveControls()}
 					</section>
 					<section class="upload-card" aria-label="Image upload panel">
 						<div class="status-label">Reference image</div>

@@ -35,13 +35,18 @@ export class AppShellRenderer {
 					</header>
 	
 					<section class="keyboard-guide" aria-label="QWERTY keyboard mapping">
-						<div class="guide-card">
-							<div class="guide-label">Upper row</div>
-							<div id="keyboard-row-top-value" class="guide-value">${this.source.getKeyboardUpperRowGuide()}</div>
+						<div class="guide-card piano-guide-card">
+							<div class="guide-label">Upper keyboard</div>
+							<div class="guide-subtitle">QWERTY row mapped to C${this.source.keyboardBaseOctave} through E${this.source.keyboardBaseOctave + 1}</div>
+							<div id="keyboard-row-top-value" class="piano-guide">${this.renderUpperRowPianoKeyboard()}</div>
 						</div>
-						<div class="guide-card">
-							<div class="guide-label">Lower row</div>
-							<div id="keyboard-row-bottom-value" class="guide-value">${this.source.getKeyboardLowerRowGuide()}</div>
+						<div class="keyboard-guide-octave-controls">
+							${this.source.appSoundDesignPanel.renderKeyboardOctaveControls()}
+						</div>
+						<div class="guide-card piano-guide-card">
+							<div class="guide-label">Lower keyboard</div>
+							<div class="guide-subtitle">QWERTY row mapped to C${this.source.keyboardBaseOctave + 1} through B${this.source.keyboardBaseOctave + 1}</div>
+							<div id="keyboard-row-bottom-value" class="piano-guide">${this.renderLowerRowPianoKeyboard()}</div>
 						</div>
 					</section>
 	
@@ -76,6 +81,61 @@ export class AppShellRenderer {
 				</main>
 			`
 		}
+
+	@Spec('Renders the upper mapped QWERTY row as a compact piano keyboard spanning a little over one octave.')
+	public renderUpperRowPianoKeyboard(): TemplateResult {
+		return this.renderPianoKeyboard([
+			{ noteLabel: `C${this.source.keyboardBaseOctave}`, qwertyLabel: 'Q', tone: 'white' },
+			{ noteLabel: `C♯${this.source.keyboardBaseOctave}`, qwertyLabel: '2', tone: 'black' },
+			{ noteLabel: `D${this.source.keyboardBaseOctave}`, qwertyLabel: 'W', tone: 'white' },
+			{ noteLabel: `D♯${this.source.keyboardBaseOctave}`, qwertyLabel: '3', tone: 'black' },
+			{ noteLabel: `E${this.source.keyboardBaseOctave}`, qwertyLabel: 'E', tone: 'white' },
+			{ noteLabel: `F${this.source.keyboardBaseOctave}`, qwertyLabel: 'R', tone: 'white' },
+			{ noteLabel: `F♯${this.source.keyboardBaseOctave}`, qwertyLabel: '5', tone: 'black' },
+			{ noteLabel: `G${this.source.keyboardBaseOctave}`, qwertyLabel: 'T', tone: 'white' },
+			{ noteLabel: `G♯${this.source.keyboardBaseOctave}`, qwertyLabel: '6', tone: 'black' },
+			{ noteLabel: `A${this.source.keyboardBaseOctave}`, qwertyLabel: 'Y', tone: 'white' },
+			{ noteLabel: `A♯${this.source.keyboardBaseOctave}`, qwertyLabel: '7', tone: 'black' },
+			{ noteLabel: `B${this.source.keyboardBaseOctave}`, qwertyLabel: 'U', tone: 'white' },
+			{ noteLabel: `C${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'I', tone: 'white' },
+			{ noteLabel: `C♯${this.source.keyboardBaseOctave + 1}`, qwertyLabel: '9', tone: 'black' },
+			{ noteLabel: `D${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'O', tone: 'white' },
+			{ noteLabel: `D♯${this.source.keyboardBaseOctave + 1}`, qwertyLabel: '0', tone: 'black' },
+			{ noteLabel: `E${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'P', tone: 'white' }
+		])
+	}
+
+	@Spec('Renders the lower mapped QWERTY row as a compact one-octave piano keyboard.')
+	public renderLowerRowPianoKeyboard(): TemplateResult {
+		return this.renderPianoKeyboard([
+			{ noteLabel: `C${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'Z', tone: 'white' },
+			{ noteLabel: `C♯${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'S', tone: 'black' },
+			{ noteLabel: `D${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'X', tone: 'white' },
+			{ noteLabel: `D♯${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'D', tone: 'black' },
+			{ noteLabel: `E${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'C', tone: 'white' },
+			{ noteLabel: `F${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'V', tone: 'white' },
+			{ noteLabel: `F♯${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'G', tone: 'black' },
+			{ noteLabel: `G${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'B', tone: 'white' },
+			{ noteLabel: `G♯${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'H', tone: 'black' },
+			{ noteLabel: `A${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'N', tone: 'white' },
+			{ noteLabel: `A♯${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'J', tone: 'black' },
+			{ noteLabel: `B${this.source.keyboardBaseOctave + 1}`, qwertyLabel: 'M', tone: 'white' }
+		])
+	}
+
+	@Spec('Renders one compact piano keyboard using labeled white and black keys for the mapped QWERTY guide.')
+	public renderPianoKeyboard(keys: Array<{ noteLabel: string, qwertyLabel: string, tone: 'white' | 'black' }>): TemplateResult {
+		return html`
+			<div class="piano-keyboard" aria-hidden="true">
+				${keys.map((key) => html`
+					<div class=${`piano-key piano-key-${key.tone}`}>
+						<span class="piano-note-label">${key.noteLabel}</span>
+						<span class="piano-qwerty-label">${key.qwertyLabel}</span>
+					</div>
+				`)}
+			</div>
+		`
+	}
 
 	@Spec('Renders one visible playback-mode radio option inside the compact selector block.')
 	public renderPlaybackModeOption(playbackMode: SynthPlaybackMode, title: string, detail: string): TemplateResult {

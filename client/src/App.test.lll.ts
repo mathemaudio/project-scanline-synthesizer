@@ -732,7 +732,7 @@ export class AppTest {
 
 			octaveDownButton.click()
 			await app.updateComplete
-			await waitFor(() => this.readText(app, '#keyboard-row-top-value').includes('C1 to E2'), 'Expected the upper keyboard guide to move down one octave after clicking the down button')
+			await waitFor(() => this.readText(app, '#keyboard-row-top-value').includes('C1') && this.readText(app, '#keyboard-row-top-value').includes('E2'), 'Expected the upper keyboard guide to move down one octave after clicking the down button')
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
 			await app.updateComplete
 			await waitFor(() => this.readText(app, '#active-note-value') === 'C1', 'Expected Q to play C1 after lowering the keyboard octave')
@@ -742,15 +742,15 @@ export class AppTest {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
 			octaveUpButton.click()
 			await app.updateComplete
-			await waitFor(() => this.readText(app, '#keyboard-row-top-value').includes('C2 to E3'), 'Expected the upper keyboard guide to return to the new default octave after clicking the up button')
+			await waitFor(() => this.readText(app, '#keyboard-row-top-value').includes('C2') && this.readText(app, '#keyboard-row-top-value').includes('E3'), 'Expected the upper keyboard guide to return to the new default octave after clicking the up button')
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true, cancelable: true }))
 			await app.updateComplete
 			await waitFor(() => this.readText(app, '#active-note-value') === 'C2', 'Expected Q to play C2 again after raising the keyboard octave')
 			const raisedGuide = this.readText(app, '#keyboard-row-top-value')
 			const raisedNote = this.readText(app, '#active-note-value')
 
-			assert(loweredGuide.includes('C1 to E2'), 'Expected the visible upper-row guide to reflect the lowered octave range')
-			assert(raisedGuide.includes('C2 to E3'), 'Expected the visible upper-row guide to reflect the restored default octave range')
+			assert(loweredGuide.includes('C1') && loweredGuide.includes('E2'), 'Expected the visible upper-row piano keyboard to reflect the lowered octave range')
+			assert(raisedGuide.includes('C2') && raisedGuide.includes('E3'), 'Expected the visible upper-row piano keyboard to reflect the restored default octave range')
 			assert(loweredNote === 'C1', 'Expected the played Q note to follow the lowered octave mapping')
 			assert(raisedNote === 'C2', 'Expected the played Q note to follow the raised octave mapping')
 			return { loweredGuide, raisedGuide, loweredNote, raisedNote }
