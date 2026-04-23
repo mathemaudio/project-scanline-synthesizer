@@ -123,29 +123,60 @@ export class AppShellRenderer {
 		])
 	}
 
-	@Spec('Renders one compact piano keyboard using layered white and black keys so the black keys sit above the seams between white keys.')
+	@Spec('Renders one compact piano keyboard using layered white and black key buttons so dragging and hardware play can light the active mapped notes.')
 	public renderPianoKeyboard(keys: Array<{ noteLabel: string, qwertyLabel: string, tone: 'white' | 'black' }>): TemplateResult {
 		const whiteKeys = keys.filter((key) => key.tone === 'white')
 		const blackKeys = this.getBlackKeysWithWhiteIndex(keys)
 		return html`
-			<div class="piano-keyboard" style=${`--white-key-count: ${whiteKeys.length};`} aria-hidden="true">
+			<div class="piano-keyboard" style=${`--white-key-count: ${whiteKeys.length};`}>
 				<div class="piano-white-keys">
-					${whiteKeys.map((key) => html`
-						<div class="piano-key piano-key-white">
-							<span class="piano-note-label">${key.noteLabel}</span>
-							<span class="piano-qwerty-label">${key.qwertyLabel}</span>
-						</div>
-					`)}
+					${whiteKeys.map((key) => this.renderPianoKeyButton(key))}
 				</div>
 				<div class="piano-black-keys">
-					${blackKeys.map((key) => html`
-						<div class="piano-key piano-key-black" style=${this.getBlackKeyInlineStyle(key.whiteIndexAfterPreviousWhite)}>
-							<span class="piano-note-label">${key.noteLabel}</span>
-							<span class="piano-qwerty-label">${key.qwertyLabel}</span>
-						</div>
-					`)}
+					${blackKeys.map((key) => this.renderPianoBlackKeyButton(key))}
 				</div>
 			</div>
+		`
+	}
+
+	@Spec('Renders one white or black piano key as a real button with active-state classes and pointer drag handlers.')
+	private renderPianoKeyButton(key: { noteLabel: string, qwertyLabel: string, tone: 'white' | 'black' }): TemplateResult {
+		const isActive = this.source.isPianoKeyActive(key.qwertyLabel)
+		return html`
+			<button
+				type="button"
+				class=${`piano-key piano-key-${key.tone} ${isActive ? 'piano-key-active' : ''}`}
+				aria-label=${`Play ${key.noteLabel} with ${key.qwertyLabel}`}
+				aria-pressed=${isActive ? 'true' : 'false'}
+				data-qwerty-key=${key.qwertyLabel}
+				@pointerdown=${(event: PointerEvent) => void this.source.onPianoKeyPointerDown(key.qwertyLabel, event)}
+				@pointerenter=${(event: PointerEvent) => void this.source.onPianoKeyPointerEnter(key.qwertyLabel, event)}
+				@pointerleave=${() => void this.source.onPianoKeyPointerLeave(key.qwertyLabel)}
+			>
+				<span class="piano-note-label">${key.noteLabel}</span>
+				<span class="piano-qwerty-label">${key.qwertyLabel}</span>
+			</button>
+		`
+	}
+
+	@Spec('Renders one black piano key button at the boundary between white keys so the overlay layout remains playable.')
+	private renderPianoBlackKeyButton(key: { noteLabel: string, qwertyLabel: string, whiteIndexAfterPreviousWhite: number }): TemplateResult {
+		const isActive = this.source.isPianoKeyActive(key.qwertyLabel)
+		return html`
+			<button
+				type="button"
+				class=${`piano-key piano-key-black ${isActive ? 'piano-key-active' : ''}`}
+				style=${this.getBlackKeyInlineStyle(key.whiteIndexAfterPreviousWhite)}
+				aria-label=${`Play ${key.noteLabel} with ${key.qwertyLabel}`}
+				aria-pressed=${isActive ? 'true' : 'false'}
+				data-qwerty-key=${key.qwertyLabel}
+				@pointerdown=${(event: PointerEvent) => void this.source.onPianoKeyPointerDown(key.qwertyLabel, event)}
+				@pointerenter=${(event: PointerEvent) => void this.source.onPianoKeyPointerEnter(key.qwertyLabel, event)}
+				@pointerleave=${() => void this.source.onPianoKeyPointerLeave(key.qwertyLabel)}
+			>
+				<span class="piano-note-label">${key.noteLabel}</span>
+				<span class="piano-qwerty-label">${key.qwertyLabel}</span>
+			</button>
 		`
 	}
 

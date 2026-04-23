@@ -65,7 +65,11 @@ export class AppShellRendererTest {
 			getKeyboardUpperRowGuide: () => 'upper guide',
 			getKeyboardLowerRowGuide: () => 'lower guide',
 			getPortamentoValueLabel: () => '87 ms',
-			renderPlaybackModeOption: () => ({ strings: ['option'], values: [] } as unknown)
+			renderPlaybackModeOption: () => ({ strings: ['option'], values: [] } as unknown),
+			isPianoKeyActive: () => false,
+			onPianoKeyPointerDown: async () => undefined,
+			onPianoKeyPointerEnter: async () => undefined,
+			onPianoKeyPointerLeave: async () => undefined
 		} as unknown as App
 	}
 

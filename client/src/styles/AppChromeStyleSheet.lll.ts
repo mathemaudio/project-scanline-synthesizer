@@ -152,8 +152,9 @@ export class AppChromeStyleSheet {
 		}
 
 		.mode-section {
-			grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
-			align-items: stretch;
+			grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+			align-items: start;
+			gap: 12px;
 		}
 
 		.guide-card,
@@ -255,6 +256,12 @@ export class AppChromeStyleSheet {
 			border-radius: 0 0 12px 12px;
 			box-sizing: border-box;
 			text-align: center;
+			cursor: pointer;
+			appearance: none;
+			-webkit-appearance: none;
+			font: inherit;
+			outline: none;
+			transition: transform 0.08s ease, filter 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 		}
 
 		.piano-key-white {
@@ -264,6 +271,15 @@ export class AppChromeStyleSheet {
 			box-shadow:
 				inset 0 1px 0 rgba(255, 255, 255, 0.6),
 				inset 0 -10px 18px rgba(168, 130, 86, 0.18);
+		}
+
+		.piano-key-white:hover,
+		.piano-key-white:focus-visible {
+			filter: brightness(1.05);
+			box-shadow:
+				inset 0 1px 0 rgba(255, 255, 255, 0.72),
+				inset 0 -10px 18px rgba(196, 151, 98, 0.24),
+				0 0 10px rgba(255, 227, 158, 0.18);
 		}
 
 		.piano-key-black {
@@ -281,6 +297,35 @@ export class AppChromeStyleSheet {
 				0 5px 10px rgba(0, 0, 0, 0.32),
 				inset 0 1px 0 rgba(203, 224, 212, 0.08);
 			z-index: 1;
+		}
+
+		.piano-key-black:hover,
+		.piano-key-black:focus-visible {
+			filter: brightness(1.12);
+			box-shadow:
+				0 5px 12px rgba(0, 0, 0, 0.36),
+				inset 0 1px 0 rgba(226, 246, 236, 0.16),
+				0 0 12px rgba(179, 246, 169, 0.12);
+		}
+
+		.piano-key-active {
+			transform: translateY(1px);
+		}
+
+		.piano-key-white.piano-key-active {
+			background: linear-gradient(180deg, rgba(255, 252, 245, 1), rgba(236, 216, 170, 0.98));
+			box-shadow:
+				inset 0 1px 0 rgba(255, 255, 255, 0.75),
+				inset 0 -12px 22px rgba(214, 162, 91, 0.28),
+				0 0 16px rgba(255, 224, 149, 0.22);
+		}
+
+		.piano-key-black.piano-key-active {
+			background: linear-gradient(180deg, rgba(86, 104, 97, 1), rgba(26, 34, 31, 1));
+			box-shadow:
+				0 6px 14px rgba(0, 0, 0, 0.38),
+				inset 0 1px 0 rgba(235, 255, 245, 0.18),
+				0 0 18px rgba(184, 246, 169, 0.22);
 		}
 
 		.piano-note-label,
@@ -313,6 +358,7 @@ export class AppChromeStyleSheet {
 		.status-upload-layout {
 			grid-template-columns: minmax(250px, 0.62fr) minmax(600px, 1.52fr) minmax(440px, 1.18fr);
 			align-items: start;
+			margin-top: -4px;
 		}
 
 		.status-grid {

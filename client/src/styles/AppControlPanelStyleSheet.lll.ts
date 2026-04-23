@@ -158,6 +158,22 @@ export class AppControlPanelStyleSheet {
 			order: 1;
 		}
 
+		.mode-selector-card {
+			justify-self: end;
+			width: fit-content;
+			max-width: 100%;
+			justify-items: end;
+			align-content: start;
+			gap: 10px;
+			padding-top: 14px;
+			padding-bottom: 14px;
+		}
+
+		.switch-card-compact {
+			padding-top: 14px;
+			padding-bottom: 14px;
+		}
+
 		.switch-card {
 			gap: 12px;
 		}
@@ -221,21 +237,23 @@ export class AppControlPanelStyleSheet {
 
 		.radio-group {
 			display: grid;
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-			gap: 12px;
+			grid-template-columns: repeat(3, minmax(168px, 208px));
+			justify-content: end;
+			gap: 10px;
+			width: 100%;
 		}
 
 		.radio-option {
 			display: grid;
 			grid-template-columns: auto 1fr;
 			align-items: center;
-			gap: 12px;
-			padding: 14px;
+			gap: 10px;
+			padding: 10px 12px;
 			border-radius: 16px;
 			border: 1px solid rgba(255, 225, 173, 0.12);
 			background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.02));
 			cursor: pointer;
-			min-height: 84px;
+			min-height: 62px;
 		}
 
 		.radio-option-selected {
@@ -264,12 +282,17 @@ export class AppControlPanelStyleSheet {
 			gap: 4px;
 		}
 
+		.radio-copy {
+			justify-items: start;
+		}
+
 		.radio-title {
 			color: var(--display-green);
 		}
 
 		.radio-detail {
-			font-size: 0.86rem;
+			font-size: 0.8rem;
+			line-height: 1.35;
 		}
 
 		.sound-design-card {
@@ -369,8 +392,15 @@ export class AppControlPanelStyleSheet {
 				grid-template-columns: 1fr;
 			}
 
+			.mode-selector-card {
+				justify-self: stretch;
+				width: auto;
+				justify-items: stretch;
+			}
+
 			.radio-group {
 				grid-template-columns: 1fr;
+				justify-content: stretch;
 			}
 
 			.settings-grid {

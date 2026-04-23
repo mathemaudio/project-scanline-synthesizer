@@ -12,7 +12,8 @@ export class AppControlPanelStyleSheetTest {
 		const cssText = String(AppControlPanelStyleSheet.styles)
 		assert(cssText.includes('.status-table-card'), 'Expected the control-panel style sheet to include the status table card selector')
 		assert(cssText.includes('.switch-card-compact'), 'Expected the control-panel style sheet to include the compact switch selector')
-		assert(cssText.includes('.radio-group'), 'Expected the control-panel style sheet to include the radio group selector')
+		assert(cssText.includes('.mode-selector-card'), 'Expected the control-panel style sheet to include the playback mode card selector')
+		assert(cssText.includes('grid-template-columns: repeat(3, minmax(168px, 208px));'), 'Expected the control-panel style sheet to define three compact playback mode columns')
 		return { cssText }
 	}
 

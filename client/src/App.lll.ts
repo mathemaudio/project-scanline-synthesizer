@@ -7,6 +7,7 @@ import { ImageWaveformRow } from './ImageWaveformRow.lll'
 import { KeyboardPitch } from './KeyboardPitch.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
 import { AppSoundDesignPanel } from './app/AppSoundDesignPanel.lll'
+import { PianoPointerController } from './app/PianoPointerController.lll'
 import { WaveformCycleCrossfader } from './synth/WaveformCycleCrossfader.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
 import { EffectsSettings } from './synth/EffectsSettings.lll'
@@ -19,10 +20,14 @@ import './UploadedImagePreview.lll'
 import { AppShellRenderer } from './app/AppShellRenderer.lll'
 import { AppControlValueReader } from './app/AppControlValueReader.lll'
 import { AppImageWaveformLoader } from './app/AppImageWaveformLoader.lll'
+import { AppSynthStatusPresenter } from './app/AppSynthStatusPresenter.lll';
+
 
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono-poly voice behavior, three playback-shaping modes, and uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
+	private readonly appSynthStatusPresenter = new AppSynthStatusPresenter()
+
 	public readonly appImageWaveformLoader = new AppImageWaveformLoader(this)
 
 	private readonly appControlValueReader = new AppControlValueReader(this)
@@ -35,7 +40,7 @@ export class App extends LitElement {
 	@state()
 	public noteStateLabel: string = 'Ready'
 	@state()
-	private noteDetailText: string = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
+	public noteDetailText: string = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
 	@state()
 	public activeNoteLabel: string = '—'
 	@state()
@@ -129,6 +134,10 @@ export class App extends LitElement {
 	public readonly imageWaveformBank = new ImageWaveformBank()
 	private readonly waveformCycleCrossfader = new WaveformCycleCrossfader()
 	private readonly waveformRowRandomizer = new WaveformRowRandomizer()
+	private readonly pianoPointerController = new PianoPointerController({
+		pressMappedKey: async (keyLabel) => await this.pressMappedPianoKey(keyLabel),
+		releaseMappedKey: async (keyLabel) => await this.releaseMappedPianoKey(keyLabel)
+	})
 
 	public readonly synth = new PrimitiveSynth({
 		monophonic: true,
@@ -156,10 +165,10 @@ export class App extends LitElement {
 			noiseBlend: 0.18
 		},
 		portamentoSeconds: 0.087,
-		onStateChange: (state) => this.onSynthStateChange(state)
+		onStateChange: (state) => this.applySynthStatusState(state)
 	})
 
-	private readonly qwertyKeyboard = new QwertyKeyboard({
+	public readonly qwertyKeyboard = new QwertyKeyboard({
 		baseOctave: this.keyboardBaseOctave,
 		pitchReferenceHz: 440
 	})
@@ -172,18 +181,31 @@ export class App extends LitElement {
 		void this.onWindowKeyUp(event)
 	}
 
-	@Spec('Connects global keyboard listeners so mapped QWERTY presses can control the synth while the app is mounted.')
+	private readonly onWindowPointerUpListener = () => {
+		void this.pianoPointerController.releaseActivePointerKey()
+	}
+
+	private readonly onWindowPointerCancelListener = () => {
+		void this.pianoPointerController.releaseActivePointerKey()
+	}
+
+	@Spec('Connects global keyboard and pointer listeners so mapped QWERTY presses and dragged piano-key pointer gestures can control the synth while the app is mounted.')
 	connectedCallback() {
 		super.connectedCallback()
 		window.addEventListener('keydown', this.onWindowKeyDownListener)
 		window.addEventListener('keyup', this.onWindowKeyUpListener)
+		window.addEventListener('pointerup', this.onWindowPointerUpListener)
+		window.addEventListener('pointercancel', this.onWindowPointerCancelListener)
 		void this.appImageWaveformLoader.loadDefaultSynthImage()
 	}
 
-	@Spec('Disconnects global keyboard listeners, releases any sounding synth voices, and cleans up uploaded preview resources when the app unmounts.')
+	@Spec('Disconnects global keyboard and pointer listeners, releases any sounding synth voices, and cleans up uploaded preview resources when the app unmounts.')
 	disconnectedCallback() {
 		window.removeEventListener('keydown', this.onWindowKeyDownListener)
 		window.removeEventListener('keyup', this.onWindowKeyUpListener)
+		window.removeEventListener('pointerup', this.onWindowPointerUpListener)
+		window.removeEventListener('pointercancel', this.onWindowPointerCancelListener)
+		void this.pianoPointerController.releaseActivePointerKey()
 		this.synth.releaseNote()
 		this.revokeUploadedImageUrl()
 		super.disconnectedCallback()
@@ -266,6 +288,21 @@ export class App extends LitElement {
 		const activePitch = this.qwertyKeyboard.getActivePitch()
 		this.updateActivePitchDisplay(activePitch)
 		await this.rebuildHeldNotesForPlaybackChange()
+	}
+
+	@Spec('Starts one mapped piano key from pointer interaction so on-screen key buttons mirror the same synth behavior as physical keyboard play.')
+	public async onPianoKeyPointerDown(keyLabel: string, event: PointerEvent) {
+		await this.pianoPointerController.onPointerDown(keyLabel, event)
+	}
+
+	@Spec('Starts one mapped piano key when the held pointer drags into that key like a software piano.')
+	public async onPianoKeyPointerEnter(keyLabel: string, event: PointerEvent) {
+		await this.pianoPointerController.onPointerEnter(keyLabel, event)
+	}
+
+	@Spec('Stops one mapped piano key when the held pointer drags out of that key like a software piano.')
+	public async onPianoKeyPointerLeave(keyLabel: string) {
+		await this.pianoPointerController.onPointerLeave(keyLabel)
 	}
 
 	@Spec('Applies one visible filter-setting control change and forwards the updated cutoff envelope to the synth engine.')
@@ -394,77 +431,6 @@ export class App extends LitElement {
 			noiseBlend: this.pluckNoiseBlendPercent / 100
 		}
 	}
-
-	@Spec('Maps synth engine state changes to visible keyboard status text that reflects the current voice mode and playback-shaping mode.')
-	private onSynthStateChange(state: 'ready' | 'playing' | 'releasing' | 'unsupported') {
-		this.updateSoundingVoiceCount()
-		if (state === 'ready') {
-			this.noteStateLabel = 'Ready'
-			if (this.playbackMode === 'cutoff') {
-				this.noteDetailText = 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
-				return
-			}
-			if (this.playbackMode === 'pluck') {
-				this.noteDetailText = 'Pluck mode is armed. New notes seed an independent Karplus–Strong string loop from the uploaded waveform or blended noise source.'
-				return
-			}
-			this.noteDetailText = this.isMonophonic
-				? 'Monophonic mode is armed. Hold overlapping mapped keys to let the newest key take over while earlier keys stay available for fallback.'
-				: 'Polyphonic mode is armed. Hold several mapped keys together to stack a chord, and release them to let every sounding voice fade cleanly.'
-			return
-		}
-
-		if (state === 'playing') {
-			const activePitch = this.qwertyKeyboard.getActivePitch()
-			if (this.playbackMode === 'cutoff') {
-				this.noteStateLabel = 'Playing'
-				this.noteDetailText = activePitch === null
-					? 'The filter ADSR is ready to open and settle the low-pass cutoff on the next played note.'
-					: `${activePitch.noteLabel} is playing through the cutoff mode. The filter opens quickly, then settles into its sustain cutoff while the note stays held.`
-				return
-			}
-			if (this.playbackMode === 'pluck') {
-				this.noteStateLabel = 'Playing'
-				this.noteDetailText = activePitch === null
-					? 'The pluck mode is ready with a tuned Karplus–Strong string response.'
-					: `${activePitch.noteLabel} is sounding in pluck mode through its own Karplus–Strong string loop with live damping and brightness shaping.`
-				return
-			}
-			if (this.isMonophonic) {
-				this.noteStateLabel = 'Playing'
-				this.noteDetailText = activePitch === null
-					? 'The monophonic synth is following the newest mapped key with a single raw voice.'
-					: `${activePitch.noteLabel} is leading the monophonic synth. The newest held key controls one voice while earlier held keys wait silently for fallback.`
-				return
-			}
-
-			this.noteStateLabel = 'Playing'
-			this.noteDetailText = activePitch === null
-				? 'The polyphonic synth is sounding every currently held mapped key with its own raw voice.'
-				: `${this.soundingVoiceCount} sounding voice${this.soundingVoiceCount === 1 ? '' : 's'} ${this.soundingVoiceCount === 1 ? 'is' : 'are'} active in polyphonic mode. ${activePitch.noteLabel} is the newest visible key while earlier held notes keep ringing.`
-			return
-		}
-
-		if (state === 'releasing') {
-			this.noteStateLabel = 'Releasing'
-			if (this.playbackMode === 'cutoff') {
-				this.noteDetailText = 'All held keys are up, so the filtered voice is fading out while the cutoff closes back toward its base position.'
-				return
-			}
-			if (this.playbackMode === 'pluck') {
-				this.noteDetailText = 'All held keys are up, so the Karplus–Strong pluck voices are fading through their short release tails.'
-				return
-			}
-			this.noteDetailText = this.isMonophonic
-				? 'All held keys are up, so the monophonic voice is fading out with a short release.'
-				: 'All held keys are up, so every sounding voice is fading out together with a short release.'
-			return
-		}
-
-		this.noteStateLabel = 'Unavailable'
-		this.noteDetailText = 'This environment does not expose a browser AudioContext, so the QWERTY synth cannot start.'
-	}
-
 	@Spec('Updates the visible active key, note, and pitch cards to match the latest keyboard-leading pitch.')
 	private updateActivePitchDisplay(activePitch: KeyboardPitch | null) {
 		if (activePitch === null) {
@@ -480,7 +446,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Refreshes the visible sounding-voice counter from the synth engine.')
-	private updateSoundingVoiceCount(heldPitches: KeyboardPitch[] = this.qwertyKeyboard.getHeldPitches()) {
+	public updateSoundingVoiceCount(heldPitches: KeyboardPitch[] = this.qwertyKeyboard.getHeldPitches()) {
 		this.soundingVoiceCount = this.calculateVisibleVoiceCount(heldPitches)
 	}
 
@@ -502,14 +468,28 @@ export class App extends LitElement {
 			return
 		}
 		if (this.soundingVoiceCount > 0) {
-			this.onSynthStateChange('playing')
+			this.applySynthStatusState('playing')
 			return
 		}
 		if (this.noteStateLabel === 'Releasing') {
-			this.onSynthStateChange('releasing')
+			this.applySynthStatusState('releasing')
 			return
 		}
-		this.onSynthStateChange('ready')
+		this.applySynthStatusState('ready')
+	}
+
+	@Spec('Applies one synth status state to the visible labels and detail text through the focused presenter.')
+	private applySynthStatusState(state: 'ready' | 'playing' | 'releasing' | 'unsupported') {
+		this.updateSoundingVoiceCount()
+		const statusSnapshot = this.appSynthStatusPresenter.createSynthStatusSnapshot({
+			state,
+			playbackMode: this.playbackMode,
+			isMonophonic: this.isMonophonic,
+			soundingVoiceCount: this.soundingVoiceCount,
+			activePitch: this.qwertyKeyboard.getActivePitch()
+		})
+		this.noteStateLabel = statusSnapshot.noteStateLabel
+		this.noteDetailText = statusSnapshot.noteDetailText
 	}
 
 	@Spec('Formats one mapped pitch into the visible frequency card text shown in the app UI.')
@@ -661,8 +641,27 @@ export class App extends LitElement {
 		return this.appShellRenderer.renderPlaybackModeOption(playbackMode, title, detail)
 	}
 
+	@Spec('Returns whether one mapped piano key is currently held so the visible keyboard guide can light active keys for both hardware and pointer play.')
+	public isPianoKeyActive(keyLabel: string): boolean {
+		return this.qwertyKeyboard.getHeldPitches().some((pitch) => pitch.keyLabel === keyLabel)
+	}
+
 	@Spec('Renders the app through the focused shell renderer so the top-level Lit custom element still exposes its visible UI.')
 	public render(): TemplateResult {
 		return this.appShellRenderer.render()
+	}
+
+	@Spec('Presses one mapped piano key using the shared keyboard-state flow so pointer and hardware interactions stay in sync.')
+	private async pressMappedPianoKey(keyLabel: string) {
+		const keyboardEvent = new KeyboardEvent('keydown', { key: keyLabel, cancelable: true })
+		const playState = this.qwertyKeyboard.pressKey(keyLabel)
+		await this.syncKeyboardChange(keyboardEvent, playState)
+	}
+
+	@Spec('Releases one mapped piano key using the shared keyboard-state flow so pointer and hardware interactions stay in sync.')
+	private async releaseMappedPianoKey(keyLabel: string) {
+		const keyboardEvent = new KeyboardEvent('keyup', { key: keyLabel, cancelable: true })
+		const playState = this.qwertyKeyboard.releaseKey(keyLabel)
+		await this.syncKeyboardChange(keyboardEvent, playState)
 	}
 }
