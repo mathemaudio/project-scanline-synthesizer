@@ -15,6 +15,7 @@ import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
 import { PluckSettings } from './synth/PluckSettings.lll'
 import { WaveformRowRandomizer } from './app/WaveformRowRandomizer.lll'
+import { MidiInputController } from './app/midi/MidiInputController.lll'
 import './ImageWaveformPreview.lll'
 import './UploadedImagePreview.lll'
 import { AppShellRenderer } from './app/AppShellRenderer.lll'
@@ -22,18 +23,13 @@ import { AppControlValueReader } from './app/AppControlValueReader.lll'
 import { AppImageWaveformLoader } from './app/AppImageWaveformLoader.lll'
 import { AppSynthStatusPresenter } from './app/AppSynthStatusPresenter.lll';
 
-
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono-poly voice behavior, three playback-shaping modes, and uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
 	private readonly appSynthStatusPresenter = new AppSynthStatusPresenter()
-
 	public readonly appImageWaveformLoader = new AppImageWaveformLoader(this)
-
 	private readonly appControlValueReader = new AppControlValueReader(this)
-
 	private readonly appShellRenderer = new AppShellRenderer(this)
-
 	public readonly appSoundDesignPanel = new AppSoundDesignPanel(this)
 
 	static styles = AppViewStyles.styles
@@ -55,10 +51,8 @@ export class App extends LitElement {
 	public isMonophonic: boolean = true
 	@state()
 	public portamentoMs: number = 87
-
 	@state()
 	public soundingVoiceCount: number = 0
-
 	@state()
 	public uploadedImageUrl: string | null = null
 
@@ -173,6 +167,10 @@ export class App extends LitElement {
 		pitchReferenceHz: 440
 	})
 
+	private readonly midiInputController = new MidiInputController({
+		onPlayStateChange: async (playState) => await this.syncMidiChange(playState)
+	})
+
 	private readonly onWindowKeyDownListener = (event: KeyboardEvent) => {
 		void this.onWindowKeyDown(event)
 	}
@@ -196,6 +194,7 @@ export class App extends LitElement {
 		window.addEventListener('keyup', this.onWindowKeyUpListener)
 		window.addEventListener('pointerup', this.onWindowPointerUpListener)
 		window.addEventListener('pointercancel', this.onWindowPointerCancelListener)
+		void this.midiInputController.connect()
 		void this.appImageWaveformLoader.loadDefaultSynthImage()
 	}
 
@@ -205,6 +204,7 @@ export class App extends LitElement {
 		window.removeEventListener('keyup', this.onWindowKeyUpListener)
 		window.removeEventListener('pointerup', this.onWindowPointerUpListener)
 		window.removeEventListener('pointercancel', this.onWindowPointerCancelListener)
+		void this.midiInputController.disconnect()
 		void this.pianoPointerController.releaseActivePointerKey()
 		this.synth.releaseNote()
 		this.revokeUploadedImageUrl()
@@ -236,13 +236,24 @@ export class App extends LitElement {
 			return
 		}
 
-		this.updateActivePitchDisplay(playState.activePitch)
-		if (event.type === 'keydown' && playState.didChange && playState.activePitch !== null) {
+		await this.applyMergedInputChange(playState.activePitch, playState.didChange, event.type === 'keydown')
+	}
+
+	@Spec('Applies one MIDI state change to the synth and visible UI after merging MIDI-held notes with any current keyboard-held notes.')
+	private async syncMidiChange(playState: { didChange: boolean, activePitch: KeyboardPitch | null, heldPitches: KeyboardPitch[] }) {
+		await this.applyMergedInputChange(playState.activePitch, playState.didChange, playState.didChange)
+	}
+
+	@Spec('Applies one merged input update from keyboard or MIDI so all active note sources share the same synth and visible UI flow.')
+	private async applyMergedInputChange(activePitchHint: KeyboardPitch | null, didChange: boolean, shouldCountAsNewPress: boolean) {
+		const heldPitches = this.getMergedHeldPitches()
+		this.updateActivePitchDisplay(this.chooseVisibleActivePitch(activePitchHint))
+		if (shouldCountAsNewPress && didChange && activePitchHint !== null) {
 			this.triggerCount += 1
 			this.randomizeWaveformRowForNewKeyPress()
 		}
-		await this.synth.syncNotes(playState.heldPitches.map((pitch) => pitch.frequencyHz))
-		this.updateSoundingVoiceCount(playState.heldPitches)
+		await this.synth.syncNotes(heldPitches.map((pitch) => pitch.frequencyHz))
+		this.updateSoundingVoiceCount(heldPitches)
 	}
 
 	@Spec('Turns monophonic synth mode on or off from the visible switch and reapplies the current held notes immediately.')
@@ -250,7 +261,7 @@ export class App extends LitElement {
 		const input = event.currentTarget as HTMLInputElement | null
 		this.isMonophonic = input?.checked ?? false
 		this.synth.setMonophonic(this.isMonophonic)
-		const heldPitches = this.qwertyKeyboard.getHeldPitches()
+		const heldPitches = this.getMergedHeldPitches()
 		await this.synth.syncNotes(heldPitches.map((pitch) => pitch.frequencyHz))
 		this.updateSoundingVoiceCount(heldPitches)
 		this.refreshVisibleStatusText()
@@ -388,7 +399,7 @@ export class App extends LitElement {
 
 	@Spec('Rebuilds any held notes after a playback-mode change so the currently selected keys adopt the new voice routing immediately.')
 	private async rebuildHeldNotesForPlaybackChange() {
-		const heldPitches = this.qwertyKeyboard.getHeldPitches()
+		const heldPitches = this.getMergedHeldPitches()
 		if (heldPitches.length === 0) {
 			this.refreshVisibleStatusText()
 			return
@@ -446,7 +457,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Refreshes the visible sounding-voice counter from the synth engine.')
-	public updateSoundingVoiceCount(heldPitches: KeyboardPitch[] = this.qwertyKeyboard.getHeldPitches()) {
+	public updateSoundingVoiceCount(heldPitches: KeyboardPitch[] = this.getMergedHeldPitches()) {
 		this.soundingVoiceCount = this.calculateVisibleVoiceCount(heldPitches)
 	}
 
@@ -486,7 +497,7 @@ export class App extends LitElement {
 			playbackMode: this.playbackMode,
 			isMonophonic: this.isMonophonic,
 			soundingVoiceCount: this.soundingVoiceCount,
-			activePitch: this.qwertyKeyboard.getActivePitch()
+			activePitch: this.chooseVisibleActivePitch()
 		})
 		this.noteStateLabel = statusSnapshot.noteStateLabel
 		this.noteDetailText = statusSnapshot.noteDetailText
@@ -663,5 +674,22 @@ export class App extends LitElement {
 		const keyboardEvent = new KeyboardEvent('keyup', { key: keyLabel, cancelable: true })
 		const playState = this.qwertyKeyboard.releaseKey(keyLabel)
 		await this.syncKeyboardChange(keyboardEvent, playState)
+	}
+
+	@Spec('Returns all held pitches across QWERTY and MIDI input so both sources can drive the same synth voice-selection flow together.')
+	private getMergedHeldPitches(): KeyboardPitch[] {
+		return [...this.qwertyKeyboard.getHeldPitches(), ...this.midiInputController.getHeldPitches()]
+	}
+
+	@Spec('Chooses the visible leading pitch by preferring a fresh input hint and otherwise falling back to the newest held MIDI or keyboard pitch.')
+	private chooseVisibleActivePitch(activePitchHint: KeyboardPitch | null = null): KeyboardPitch | null {
+		if (activePitchHint !== null) {
+			return activePitchHint
+		}
+		const midiActivePitch = this.midiInputController.getActivePitch()
+		if (midiActivePitch !== null) {
+			return midiActivePitch
+		}
+		return this.qwertyKeyboard.getActivePitch()
 	}
 }

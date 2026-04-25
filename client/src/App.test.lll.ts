@@ -184,6 +184,42 @@ export class AppTest {
 		}
 	}
 
+	@Scenario('MIDI note input updates the visible active note and sounding voice count')
+	static async respondsToMidiNoteInput(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ activeKey: string, activeNote: string, soundingVoices: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+		const navigatorWithMidi = navigator as Navigator & { requestMIDIAccess?: ((options?: MIDIOptions) => Promise<MIDIAccess>) | undefined }
+		const originalRequestMidiAccess = navigatorWithMidi.requestMIDIAccess
+		const midiInput = this.createBehavioralMidiInput()
+		const midiAccess = this.createBehavioralMidiAccess(midiInput)
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		navigatorWithMidi.requestMIDIAccess = async (_options?: MIDIOptions) => midiAccess as unknown as MIDIAccess
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			midiInput.onmidimessage?.({ data: [0x90, 60, 100] })
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#active-key-value') === 'MIDI', 'Expected MIDI note input to become the visible active key source')
+			await waitFor(() => this.readText(app, '#sounding-voices-value') === '1', 'Expected one sounding voice after one MIDI note is held')
+			const activeKey = this.readText(app, '#active-key-value')
+			const activeNote = this.readText(app, '#active-note-value')
+			const soundingVoices = this.readText(app, '#sounding-voices-value')
+			assert(activeKey === 'MIDI', 'Expected the active key label to show MIDI for Web MIDI note input')
+			assert(activeNote === 'C4', 'Expected MIDI note 60 to appear as C4 in the visible note card')
+			assert(soundingVoices === '1', 'Expected one visible sounding voice while one MIDI note is held')
+			return { activeKey, activeNote, soundingVoices }
+		} finally {
+			midiInput.onmidimessage?.({ data: [0x80, 60, 0] })
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+			navigatorWithMidi.requestMIDIAccess = originalRequestMidiAccess
+		}
+	}
+
 	@Scenario('switching playback modes keeps keyboard play active while the panel changes')
 	static async keepsKeyboardPlayableWhileSwitchingPlaybackModes(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ playbackMode: string, noteState: string, activeKey: string, panelCopy: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -1029,6 +1065,21 @@ export class AppTest {
 	private static createBehavioralHTMLElementConstructor(): new () => HTMLElement {
 		return class {
 		} as unknown as new () => HTMLElement
+	}
+
+	@Spec('Creates one tiny MIDI input test double whose message handler can be triggered by behavioral app scenarios.')
+	private static createBehavioralMidiInput(): { onmidimessage: ((event: { data: number[] }) => void) | null } {
+		return {
+			onmidimessage: null
+		}
+	}
+
+	@Spec('Creates one tiny MIDIAccess-like test double that exposes a single connected input for behavioral app scenarios.')
+	private static createBehavioralMidiAccess(midiInput: { onmidimessage: ((event: { data: number[] }) => void) | null }): { inputs: Map<string, { onmidimessage: ((event: { data: number[] }) => void) | null }>, onstatechange: (() => void) | null } {
+		return {
+			inputs: new Map([['behavioral-midi-input', midiInput]]),
+			onstatechange: null
+		}
 	}
 
 }

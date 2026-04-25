@@ -6,11 +6,12 @@ Scanline Synth is a browser-based synthesizer that turns image data into playabl
 
 ![Scanline Synth](client/public/scanline_synth.webp)
 
-It reads the horizontal rows of an image as single-cycle waveforms, lets you play those waveforms from your computer keyboard or the on-screen piano, and shapes the result with multiple playback modes and live controls.
+It reads the horizontal rows of an image as single-cycle waveforms, lets you play those waveforms from your computer keyboard, a connected MIDI controller, or the on-screen piano, and shapes the result with multiple playback modes and live controls.
 
 ## What it does
 
 - Plays notes from a QWERTY keyboard layout
+- Supports Web MIDI note input from connected MIDI keyboards and controllers
 - Supports on-screen piano interaction with pointer dragging
 - Loads a default synth image on startup
 - Lets you upload your own image and convert each row into a waveform
@@ -35,12 +36,10 @@ That means visual texture turns into timbre:
 
 ## Tech stack
 
-- **TypeScript**
+- **LLLTS**
 - **Lit** for UI rendering
 - **Vite** for local development and bundling
 - **Web Audio API** for synthesis
-- **LLLTS** authoring/test tooling
-- **pnpm** as the package manager
 
 ## Getting started
 
@@ -99,7 +98,7 @@ Inside `client/package.json`:
 
 1. Start the dev server.
 2. Open the app in a browser.
-3. Use the **QWERTY keyboard** to play notes.
+3. Use the **QWERTY keyboard** or connect a **MIDI controller** to play notes.
 4. Toggle **monophonic/polyphonic** behavior.
 5. Adjust **portamento** and playback settings.
 6. Switch between **Raw**, **Cutoff**, and **Pluck** modes.
@@ -114,6 +113,17 @@ Inside `client/package.json`:
 The synth maps a section of the computer keyboard to chromatic notes, similar to many software synths.
 
 It also includes visible keyboard guides so the musical layout is easy to follow.
+
+### MIDI input
+
+Scanline Synth also listens for **Web MIDI** note input when your browser and device support it.
+
+- Connect a MIDI keyboard or pad controller before or after opening the app.
+- The app automatically listens for note-on and note-off messages from connected inputs.
+- MIDI notes are merged with QWERTY-held notes, so either input path can drive the same synth engine.
+- The active note card will show **MIDI** as the key source when the most recent note came from a MIDI device.
+
+Web MIDI support depends on browser support and user/device permissions.
 
 ### Playback modes
 
@@ -178,6 +188,7 @@ pnpm build
 ## Notes
 
 - The app depends on browser audio support through the Web Audio API.
+- Web MIDI input requires a browser that supports the Web MIDI API and may prompt for MIDI-device permission.
 - Some browser autoplay restrictions may require a user interaction before audio starts.
 - A default image is loaded so the synth is immediately playable without upload.
 
