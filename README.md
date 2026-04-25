@@ -1,8 +1,6 @@
 # Scanline Synth
 
-
 Scanline Synth is a browser-based synthesizer that turns image data into playable sound.
-
 
 ![Scanline Synth](client/public/scanline_synth.webp)
 
@@ -25,7 +23,7 @@ It reads the horizontal rows of an image as single-cycle waveforms, lets you pla
 
 ## Core idea
 
-Each horizontal scanline of an image becomes one waveform.
+Each horizontal line of an image becomes one waveform.
 
 That means visual texture turns into timbre:
 
