@@ -152,9 +152,7 @@ export class AppChromeStyleSheet {
 		}
 
 		.mode-section {
-			grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-			align-items: start;
-			gap: 12px;
+			display: none;
 		}
 
 		.guide-card,
@@ -227,7 +225,7 @@ export class AppChromeStyleSheet {
 			position: relative;
 			min-width: 0;
 			overflow: hidden;
-			padding: 10px;
+			padding: 8px;
 			border-radius: 16px;
 			background: linear-gradient(180deg, rgba(23, 17, 13, 0.92), rgba(56, 42, 31, 0.86));
 			box-shadow: inset 0 1px 0 rgba(255, 248, 230, 0.06);
@@ -242,8 +240,8 @@ export class AppChromeStyleSheet {
 
 		.piano-black-keys {
 			position: absolute;
-			inset: 10px 10px auto 10px;
-			height: 76px;
+			inset: 8px 8px auto 8px;
+			height: 68px;
 			pointer-events: none;
 		}
 
@@ -251,9 +249,9 @@ export class AppChromeStyleSheet {
 			display: grid;
 			align-content: space-between;
 			justify-items: center;
-			gap: 8px;
-			padding: 10px 6px 8px;
-			border-radius: 0 0 12px 12px;
+			gap: 6px;
+			padding: 8px 4px 7px;
+			border-radius: 0 0 11px 11px;
 			box-sizing: border-box;
 			text-align: center;
 			cursor: pointer;
@@ -265,7 +263,7 @@ export class AppChromeStyleSheet {
 		}
 
 		.piano-key-white {
-			min-height: 112px;
+			min-height: 98px;
 			background: linear-gradient(180deg, rgba(255, 251, 243, 0.98), rgba(223, 207, 179, 0.96));
 			border: 1px solid rgba(108, 84, 62, 0.34);
 			box-shadow:
@@ -285,12 +283,12 @@ export class AppChromeStyleSheet {
 		.piano-key-black {
 			position: absolute;
 			top: 0;
-			width: calc(100% / var(--white-key-count) * 0.62);
-			min-height: 76px;
+			width: calc(100% / var(--white-key-count) * 0.54);
+			min-height: 68px;
 			transform: translateX(-50%);
-			padding-top: 8px;
-			padding-bottom: 6px;
-			border-radius: 0 0 10px 10px;
+			padding-top: 6px;
+			padding-bottom: 5px;
+			border-radius: 0 0 9px 9px;
 			background: linear-gradient(180deg, rgba(58, 66, 63, 0.98), rgba(16, 20, 19, 0.98));
 			border: 1px solid rgba(0, 0, 0, 0.5);
 			box-shadow:
@@ -335,14 +333,14 @@ export class AppChromeStyleSheet {
 		}
 
 		.piano-note-label {
-			font-size: 0.74rem;
-			letter-spacing: 0.05em;
+			font-size: 0.67rem;
+			letter-spacing: 0.04em;
 		}
 
 		.piano-qwerty-label {
-			font-size: 0.92rem;
+			font-size: 0.82rem;
 			font-weight: 700;
-			letter-spacing: 0.06em;
+			letter-spacing: 0.05em;
 		}
 
 		.piano-key-white .piano-note-label,

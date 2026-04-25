@@ -12,8 +12,9 @@ export class AppControlPanelStyleSheetTest {
 		const cssText = String(AppControlPanelStyleSheet.styles)
 		assert(cssText.includes('.status-table-card'), 'Expected the control-panel style sheet to include the status table card selector')
 		assert(cssText.includes('.switch-card-compact'), 'Expected the control-panel style sheet to include the compact switch selector')
-		assert(cssText.includes('.mode-selector-card'), 'Expected the control-panel style sheet to include the playback mode card selector')
-		assert(cssText.includes('grid-template-columns: repeat(3, minmax(168px, 208px));'), 'Expected the control-panel style sheet to define three compact playback mode columns')
+		assert(cssText.includes('.mode-selector-card-inline'), 'Expected the control-panel style sheet to include the inline playback mode card selector')
+		assert(cssText.includes('.switch-card-keyboard-side'), 'Expected the control-panel style sheet to include the keyboard-side monophonic card selector')
+		assert(cssText.includes('grid-template-columns: repeat(3, minmax(150px, 1fr));'), 'Expected the control-panel style sheet to define narrower playback mode columns in the right panel')
 		return { cssText }
 	}
 

@@ -23,13 +23,15 @@ export class VintageKnobTest {
 		document.body.appendChild(knob)
 		await knob.updateComplete
 		const valueText = knob.shadowRoot?.querySelector('.value')?.textContent?.trim() ?? ''
+		const valueMarkup = knob.shadowRoot?.querySelector('.value')?.innerHTML ?? ''
 		const surface = knob.shadowRoot?.querySelector<HTMLElement>('.knob')
 		assert(surface !== null && surface !== undefined, 'Expected the vintage knob surface to render')
 		surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }))
 		await knob.updateComplete
 		const value = knob.value
 		knob.remove()
-		assert(valueText === '40 ms', 'Expected the knob center display to show the provided value text')
+		assert(valueText === '40ms', 'Expected the knob center display text to remain readable after forced two-line rendering')
+		assert(valueMarkup.includes('<br'), 'Expected multi-word knob values to include a forced line break')
 		assert(value === '45', 'Expected keyboard interaction to increase the knob value by one step')
 		assert(inputCount === 1, 'Expected the knob to emit one input event after one arrow step')
 		return { valueText, value, inputCount }

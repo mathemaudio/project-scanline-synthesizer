@@ -169,9 +169,23 @@ export class AppControlPanelStyleSheet {
 			padding-bottom: 14px;
 		}
 
+		.mode-selector-card-inline {
+			justify-self: stretch;
+			width: auto;
+			justify-items: stretch;
+			padding: 0;
+			background: none;
+			border: none;
+			box-shadow: none;
+		}
+
 		.switch-card-compact {
 			padding-top: 14px;
 			padding-bottom: 14px;
+		}
+
+		.switch-card-keyboard-side {
+			margin-top: -2px;
 		}
 
 		.switch-card {
@@ -237,7 +251,7 @@ export class AppControlPanelStyleSheet {
 
 		.radio-group {
 			display: grid;
-			grid-template-columns: repeat(3, minmax(168px, 208px));
+			grid-template-columns: repeat(3, minmax(150px, 1fr));
 			justify-content: end;
 			gap: 10px;
 			width: 100%;
@@ -361,6 +375,11 @@ export class AppControlPanelStyleSheet {
 			justify-content: center;
 			gap: 12px;
 			width: 100%;
+			min-height: 2.4em;
+		}
+
+		.setting-label-row-stacked {
+			line-height: 1.15;
 		}
 
 		.detail {
@@ -396,6 +415,10 @@ export class AppControlPanelStyleSheet {
 				justify-self: stretch;
 				width: auto;
 				justify-items: stretch;
+			}
+
+			.mode-selector-card-inline {
+				padding: 0;
 			}
 
 			.radio-group {

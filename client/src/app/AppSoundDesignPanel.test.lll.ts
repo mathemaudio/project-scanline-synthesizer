@@ -12,12 +12,10 @@ export class AppSoundDesignPanelTest {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		void subjectFactory
 		const panel = new AppSoundDesignPanel(this.createAppStub())
-		const crossfadeKnob = panel.renderVintageKnob('waveform-crossfade-slider', 'Loop crossfade', '', 10, 0, 50, 1, '10%', () => undefined)
-		const randomnessKnob = panel.renderVintageKnob('waveform-row-randomness-slider', 'Randomize row', '', 0.5, 0, 10, 0.5, '0.5%', () => undefined)
-		const markup = `${crossfadeKnob.strings.join(' ')} ${crossfadeKnob.values.map((value) => String(value)).join(' ')} ${randomnessKnob.strings.join(' ')} ${randomnessKnob.values.map((value) => String(value)).join(' ')}`
-		assert(markup.includes('waveform-crossfade-slider'), 'Expected the upload panel to include the loop crossfade knob')
-		assert(markup.includes('waveform-row-randomness-slider'), 'Expected the upload panel to include the new row randomness knob')
-		assert(markup.includes('vintage-knob'), 'Expected the upload panel to render the reusable vintage knob component')
+		const waveformControls = panel.renderWaveformPlaybackControls()
+		const markup = `${waveformControls.strings.join(' ')} ${waveformControls.values.map((value) => String(value)).join(' ')}`
+		assert(markup.includes('Waveform playback'), 'Expected the upload panel to keep the waveform playback heading')
+		assert(markup.includes('Row shaping'), 'Expected the upload panel to keep the row shaping summary label')
 		return { markup }
 	}
 
@@ -26,14 +24,27 @@ export class AppSoundDesignPanelTest {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		void subjectFactory
 		const panel = new AppSoundDesignPanel(this.createAppStub('pluck'))
-		const dampingSlider = panel.renderVintageKnob('pluck-damping-slider', 'Damping', 'pluck-damping-percent', 58, 0, 100, 1, '58%', () => undefined, 'Controls sustain length and loop energy loss.')
-		const brightnessSlider = panel.renderVintageKnob('pluck-brightness-slider', 'Brightness', 'pluck-brightness-percent', 72, 0, 100, 1, '72%', () => undefined, 'Controls high-frequency retention in the string loop.')
-		const noiseSlider = panel.renderVintageKnob('pluck-noise-blend-slider', 'Noise blend', 'pluck-noise-blend-percent', 18, 0, 100, 1, '18%', () => undefined, 'Crossfades between uploaded waveform excitation and broadband noise.')
-		const markup = `${dampingSlider.strings.join(' ')} ${dampingSlider.values.map((value) => String(value)).join(' ')} ${brightnessSlider.strings.join(' ')} ${brightnessSlider.values.map((value) => String(value)).join(' ')} ${noiseSlider.strings.join(' ')} ${noiseSlider.values.map((value) => String(value)).join(' ')}`
-		assert(markup.includes('pluck-damping-slider'), 'Expected pluck settings to render the damping knob')
-		assert(markup.includes('pluck-brightness-slider'), 'Expected pluck settings to render the brightness knob')
-		assert(markup.includes('pluck-noise-blend-slider'), 'Expected pluck settings to render the noise blend knob')
-		assert(markup.includes('vintage-knob'), 'Expected pluck settings to use the shared vintage knob component')
+		const playbackPanel = panel.renderPlaybackSettingsPanel()
+		const markup = `${playbackPanel.strings.join(' ')} ${playbackPanel.values.map((value) => String(value)).join(' ')}`
+		assert(markup.includes('Playback mode'), 'Expected the playback settings panel to include the inline playback mode selector heading')
+		assert(markup.includes('Playback settings'), 'Expected the playback settings panel to keep the playback settings heading')
+		assert(markup.includes('Pluck mode now runs a Karplus–Strong string loop per note'), 'Expected pluck playback copy to remain visible in the panel')
+		return { markup }
+	}
+
+	@Scenario('multi-word knob labels render as a stable two-line label while single words stay on one line')
+	static async rendersStableKnobLabelBreaks(subjectFactory: SubjectFactory<AppSoundDesignPanel>, scenario?: ScenarioParameter): Promise<{ markup: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const panel = new AppSoundDesignPanel(this.createAppStub())
+		const multiWordKnob = panel.renderVintageKnob('delay-time-slider', 'Delay time', 'delay-time-ms', 260, 40, 900, 5, '260 ms', () => undefined)
+		const singleWordKnob = panel.renderVintageKnob('attack-slider', 'Attack', 'attack-ms', 40, 0, 1000, 5, '40 ms', () => undefined)
+		const markup = `${multiWordKnob.strings.join(' ')} ${multiWordKnob.values.map((value) => String(value)).join(' ')} ${singleWordKnob.strings.join(' ')} ${singleWordKnob.values.map((value) => String(value)).join(' ')}`
+		const multiWordValues = multiWordKnob.values.map((value) => String(value)).join(' ')
+		assert(markup.includes('setting-label-row-stacked'), 'Expected multi-word knob labels to use the stacked label-row class')
+		assert(markup.includes('delay-time-slider'), 'Expected the multi-word knob markup to preserve the knob id')
+		assert(multiWordValues.includes('[object Object]'), 'Expected the multi-word knob label to render through a nested template result')
+		assert(markup.includes('Attack'), 'Expected single-word knob labels to remain renderable without forced stacking')
 		return { markup }
 	}
 
@@ -41,6 +52,7 @@ export class AppSoundDesignPanelTest {
 	private static createAppStub(playbackMode: 'cutoff' | 'pluck' = 'cutoff'): App {
 		return {
 			playbackMode,
+			portamentoMs: 87,
 			chorusMixPercent: 43,
 			chorusFeedbackPercent: 25,
 			chorusDepthMs: 10,
@@ -73,6 +85,8 @@ export class AppSoundDesignPanelTest {
 			soundingVoiceCount: 0,
 			triggerCount: 0,
 			isMonophonic: true,
+			onMonophonicToggle: () => undefined,
+			onPortamentoInput: () => undefined,
 			onEffectsSettingChange: () => undefined,
 			onFilterSettingChange: () => undefined,
 			onPluckSettingChange: () => undefined,
@@ -85,6 +99,8 @@ export class AppSoundDesignPanelTest {
 			createWaveformPreviewSamples: () => [0, 1, 0, 1],
 			createWaveformPreviewSeamRatios: () => [1 / 3, 2 / 3],
 			getPlaybackModeLabel: () => playbackMode === 'pluck' ? 'Pluck' : 'Cutoff',
+			getPortamentoValueLabel: () => '87 ms',
+			renderPlaybackModeOption: () => ({ strings: ['option Playback mode'], values: [] } as unknown),
 			getEnvelopeSummary: () => playbackMode === 'pluck' ? '58% damping · 72% brightness · 18% noise' : '40 ms A · 725 ms D · 15% S · 220 ms R'
 		} as unknown as App
 	}

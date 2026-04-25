@@ -14,7 +14,8 @@ export class AppChromeStyleSheetTest {
 		assert(cssText.includes('.piano-keyboard'), 'Expected the chrome style sheet to include the piano keyboard selector')
 		assert(cssText.includes('.guide-subtitle'), 'Expected the chrome style sheet to include the guide subtitle selector')
 		assert(cssText.includes('.mode-section'), 'Expected the chrome style sheet to include the playback mode section selector')
-		assert(cssText.includes('grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);'), 'Expected the chrome style sheet to tighten the playback mode section columns')
+		assert(cssText.includes('display: none;'), 'Expected the chrome style sheet to collapse the old middle-row mode section')
+		assert(cssText.includes('width: calc(100% / var(--white-key-count) * 0.54);'), 'Expected the chrome style sheet to squeeze the black key width')
 		return { cssText }
 	}
 

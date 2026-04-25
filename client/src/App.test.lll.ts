@@ -65,7 +65,7 @@ export class AppTest {
 			assert(voiceMode === 'Mono', 'Expected voice card to show Mono')
 			assert(soundingVoices === '1', 'Expected only one sounding voice in monophonic mode with overlapping keys held')
 			assert(noteState === 'Playing', 'Expected note state to remain visibly Playing while a note is sounding')
-			assert(portamentoValue === '87 ms', 'Expected the monophonic card to show the screenshot default 87 ms portamento value')
+			assert(portamentoValue === '87ms', 'Expected the monophonic card to show the screenshot default 87 ms portamento value')
 			return { toggleValue, voiceMode, soundingVoices, noteState, portamentoValue }
 		} finally {
 			window.dispatchEvent(new KeyboardEvent('keyup', { key: 'q', bubbles: true, cancelable: true }))
@@ -92,12 +92,12 @@ export class AppTest {
 			portamentoSlider.value = '640'
 			portamentoSlider.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
 			await app.updateComplete
-			await waitFor(() => this.readTextFromShadowHost(app, '#portamento-slider', '.value') === '640 ms', 'Expected the visible portamento value to update after moving the slider')
+			await waitFor(() => this.readTextFromShadowHost(app, '#portamento-slider', '.value') === '640ms', 'Expected the visible portamento value to update after moving the slider')
 
 			const portamentoValue = this.readTextFromShadowHost(app, '#portamento-slider', '.value')
 			const sliderValue = this.readTextFromValueContainer(app, '#portamento-slider')
 
-			assert(portamentoValue === '640 ms', 'Expected the monophonic card to show the updated portamento milliseconds')
+			assert(portamentoValue === '640ms', 'Expected the monophonic card to show the updated portamento milliseconds')
 			assert(sliderValue === '640', 'Expected the portamento knob value to stay in sync with the visible label')
 			return { portamentoValue, sliderValue }
 		} finally {
@@ -285,12 +285,13 @@ export class AppTest {
 			pluckRadio.dispatchEvent(new Event('change', { bubbles: true }))
 			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Pluck', 'Expected playback settings label to switch to Pluck')
 			const pluckLabel = this.readText(app, '#effects-panel-value')
-			const chorusLabel = app.shadowRoot?.querySelector('.settings-grid .setting-control .status-label')?.textContent?.trim() ?? ''
+			const chorusKnob = app.shadowRoot?.querySelector('#chorus-mix-slider')
+			const chorusLabel = chorusKnob instanceof HTMLElement ? chorusKnob.getAttribute('id') ?? '' : ''
 
 			assert(rawLabel === 'Always on', 'Expected effects panel to stay visible in raw mode')
 			assert(cutoffLabel === 'Always on', 'Expected effects panel to stay visible in cutoff mode')
 			assert(pluckLabel === 'Always on', 'Expected effects panel to stay visible in pluck mode')
-			assert(chorusLabel === 'Chorus mix', 'Expected effects controls to remain visible below playback settings across modes')
+			assert(chorusLabel === 'chorus-mix-slider', 'Expected effects controls to remain visible below playback settings across modes')
 			return { rawLabel, cutoffLabel, pluckLabel, chorusLabel }
 		} finally {
 			if (originalAudioContext === undefined) {

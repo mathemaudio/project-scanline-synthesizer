@@ -90,6 +90,10 @@ export class VintageKnob extends LitElement {
 			position: relative;
 			z-index: 1;
 			max-width: 38px;
+			min-height: 2.3em;
+			display: grid;
+			align-content: center;
+			justify-items: center;
 			text-align: center;
 			font-family: 'Orbitron', 'Inter', sans-serif;
 			font-size: 0.56rem;
@@ -146,9 +150,18 @@ export class VintageKnob extends LitElement {
 				@keydown=${this.onKeyDown}
 				@wheel=${this.onWheel}
 			>
-				<div class="value">${this.valueText}</div>
+				<div class="value">${this.renderValueText()}</div>
 			</div>
 		`
+	}
+
+	@Spec('Renders the center value text on two lines only when the provided value text contains a space.')
+	private renderValueText(): TemplateResult | string {
+		const valueTextParts = this.valueText.split(' ')
+		if (valueTextParts.length <= 1) {
+			return this.valueText
+		}
+		return html`${valueTextParts[0]}<br />${valueTextParts.slice(1).join(' ')}`
 	}
 
 	@Spec('Builds the inline CSS custom properties that rotate the indicator and fill the vintage sweep arc.')

@@ -34,6 +34,7 @@ export class AppShellRendererTest {
 		const lowerMarkup = lowerTemplate.strings.join('')
 		assert(renderMarkup.includes('Upper keyboard'), 'Expected the keyboard guide to relabel the upper row as an upper keyboard')
 		assert(renderMarkup.includes('Lower keyboard'), 'Expected the keyboard guide to relabel the lower row as a lower keyboard')
+		assert(renderMarkup.includes('panel'), 'Expected the shell renderer to delegate lower layout content to the sound-design panel renderer')
 		assert(upperMarkup.includes('piano-keyboard'), 'Expected the upper keyboard guide template to include piano keyboard markup')
 		assert(lowerMarkup.includes('piano-keyboard'), 'Expected the lower keyboard guide template to include piano keyboard markup')
 		assert(upperMarkup.includes('piano-white-keys'), 'Expected the upper piano keyboard template to render a white-key layer')

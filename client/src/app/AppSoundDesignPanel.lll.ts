@@ -31,9 +31,13 @@ export class AppSoundDesignPanel {
 
 	@Spec('Renders one shared vintage knob card with label value text and optional supporting help copy.')
 	public renderVintageKnob(inputId: string, label: string, name: string, value: number, min: number, max: number, step: number, valueText: string, onInput: (event: Event) => void, detail: string = ''): TemplateResult {
+		const labelWords = label.split(' ')
+		const shouldStackLabel = labelWords.length > 1
 		return html`
 			<label class="setting-control setting-control-knob" for=${inputId}>
-				<span class="setting-label-row"><span class="status-label">${label}</span></span>
+				<span class=${`setting-label-row ${shouldStackLabel ? 'setting-label-row-stacked' : ''}`}>
+					<span class="status-label">${shouldStackLabel ? html`${labelWords[0]}<br />${labelWords.slice(1).join(' ')}` : label}</span>
+				</span>
 				<vintage-knob id=${inputId} name=${name} .min=${min} .max=${max} .step=${step} .value=${String(value)} value-text=${valueText} @input=${onInput}></vintage-knob>
 				${detail.length > 0 ? html`<span class="settings-help">${detail}</span>` : html``}
 			</label>
@@ -105,6 +109,14 @@ export class AppSoundDesignPanel {
 							<div class="status-label">Playback settings</div>
 							<div id="playback-mode-value" class="plate-value">${this.source.getPlaybackModeLabel()}</div>
 						</div>
+						<div class="mode-selector-card mode-selector-card-inline" aria-label="Playback mode selector">
+							<div class="switch-label">Playback mode</div>
+							<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
+								${this.source.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
+								${this.source.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
+								${this.source.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
+							</div>
+						</div>
 						<div id="playback-settings-mode-copy" class="panel-copy">Filter ADSR + low-pass cutoff shaping for the active waveform.</div>
 						<div id="filter-envelope-summary" class="settings-summary">${this.source.getEnvelopeSummary()}</div>
 						<div id="filter-cutoff-summary" class="settings-summary">${this.source.filterBaseCutoffHz} Hz base · ${Math.max(this.source.filterPeakCutoffHz, this.source.filterBaseCutoffHz + 20)} Hz peak · Q ${this.source.filterResonance.toFixed(1)}</div>
@@ -128,6 +140,14 @@ export class AppSoundDesignPanel {
 							<div class="status-label">Playback settings</div>
 							<div id="playback-mode-value" class="plate-value">${this.source.getPlaybackModeLabel()}</div>
 						</div>
+						<div class="mode-selector-card mode-selector-card-inline" aria-label="Playback mode selector">
+							<div class="switch-label">Playback mode</div>
+							<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
+								${this.source.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
+								${this.source.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
+								${this.source.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
+							</div>
+						</div>
 						<div id="playback-settings-mode-copy" class="panel-copy">Pluck mode now runs a Karplus–Strong string loop per note, using the uploaded waveform row as excitation and blending in noise when desired.</div>
 						<div id="pluck-settings-summary" class="settings-summary">${this.source.getEnvelopeSummary()}</div>
 						<div class="settings-grid">
@@ -145,6 +165,14 @@ export class AppSoundDesignPanel {
 						<div class="status-label">Playback settings</div>
 						<div id="playback-mode-value" class="plate-value">${this.source.getPlaybackModeLabel()}</div>
 					</div>
+					<div class="mode-selector-card mode-selector-card-inline" aria-label="Playback mode selector">
+						<div class="switch-label">Playback mode</div>
+						<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
+							${this.source.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
+							${this.source.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
+							${this.source.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
+						</div>
+					</div>
 					<div id="playback-settings-mode-copy" class="panel-copy">Raw mode plays the current waveform directly with no extra shaping stage.</div>
 					<div id="playback-settings-empty" class="settings-empty">No extra settings are needed for raw playback.</div>
 				</section>
@@ -156,6 +184,22 @@ export class AppSoundDesignPanel {
 		return html`
 				<section class="status-upload-layout" aria-label="Synth status, uploaded image panel, and playback settings">
 					<section class="status-grid" aria-label="Keyboard synth status">
+						<section class="switch-card switch-card-compact switch-card-keyboard-side" aria-label="Monophonic mode card">
+							<div class="switch-label">Monophonic mode</div>
+							<div class="switch-row">
+								<div id="monophonic-toggle-value" class="switch-value">${this.source.isMonophonic ? 'On' : 'Off'}</div>
+								<label class="switch-control" for="monophonic-toggle">
+									<input id="monophonic-toggle" class="switch-input" type="checkbox" ?checked=${this.source.isMonophonic} @change=${this.source.onMonophonicToggle} />
+									<span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+								</label>
+							</div>
+							<div class="setting-control setting-control-knob switch-setting-control">
+								<div class="setting-label-row">
+									<div class="switch-label">Portamento</div>
+								</div>
+								<vintage-knob id="portamento-slider" name="portamento-ms" .min=${0} .max=${1000} .step=${1} .value=${String(this.source.portamentoMs)} value-text=${this.source.getPortamentoValueLabel()} @input=${this.source.onPortamentoInput}></vintage-knob>
+							</div>
+						</section>
 						<div class="status-table-card">
 							<div class="status-table">
 								<div class="status-table-row status-table-row-wide"><div class="status-label">Envelope</div><div id="envelope-value" class="status-value">${this.source.getEnvelopeSummary()}</div></div>
