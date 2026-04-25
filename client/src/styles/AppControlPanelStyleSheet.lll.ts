@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import { css } from 'lit'
 
 @Spec('Provides the shared status, upload, control-panel, and responsive styles for the Scanline Synth app.')

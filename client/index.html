@@ -8,6 +8,12 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet" />
 	<style>
+		html,
+		body {
+			min-height: 100vh;
+			background: #0a0807;
+		}
+
 		*,
 		*::before,
 		*::after {
@@ -16,8 +22,11 @@
 		}
 
 		body {
-			min-height: 100vh;
-			background: #0a0807;
+			overflow: auto;
+		}
+
+		#app {
+			zoom: 0.75;
 		}
 	</style>
 	<title>Scanline Synth</title>

@@ -1,5 +1,5 @@
 import './Calculator.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from './system/lll.lll'
 import { Calculator } from './Calculator.lll'
 
 @Spec('Exercises calculator behavior through visible UI interactions only.')

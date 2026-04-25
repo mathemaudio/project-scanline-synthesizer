@@ -1,5 +1,5 @@
 import './WaveformCycleCrossfader.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '../system/lll.lll'
 import { WaveformCycleCrossfader } from './WaveformCycleCrossfader.lll'
 
 @Spec('Verifies seam crossfading for looped single-cycle waveforms.')

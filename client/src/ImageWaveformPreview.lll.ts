@@ -1,6 +1,6 @@
 import { LitElement, css, html, type TemplateResult } from 'lit'
 import { customElement, property, query } from 'lit/decorators.js'
-import { Spec } from '@shared/lll.lll'
+import { Spec } from './system/lll.lll'
 
 @Spec('Draws a visible three-cycle preview of the currently selected image-derived waveform row.')
 @customElement('image-waveform-preview')

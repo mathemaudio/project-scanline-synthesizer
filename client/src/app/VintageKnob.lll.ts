@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import { LitElement, css, html, type TemplateResult } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 

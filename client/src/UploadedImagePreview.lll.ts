@@ -1,6 +1,6 @@
 import { LitElement, css, html, type TemplateResult } from 'lit'
 import { customElement, property, query } from 'lit/decorators.js'
-import { Spec } from '@shared/lll.lll'
+import { Spec } from './system/lll.lll'
 
 @Spec('Shows the uploaded reference image with a visible horizontal marker for the currently selected waveform row.')
 @customElement('uploaded-image-preview')

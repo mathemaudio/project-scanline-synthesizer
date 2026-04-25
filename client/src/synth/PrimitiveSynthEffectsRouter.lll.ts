@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import type { PrimitiveSynth } from '../PrimitiveSynth.lll'
 
 @Spec("Owns the shared chorus and delay bus nodes for PrimitiveSynth and refreshes their live routing parameters when effect settings change.")

@@ -1,5 +1,5 @@
 import './App.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from './system/lll.lll'
 import { App } from './App.lll'
 
 @Spec('Exercises the Scanline Synth app only through visible UI and keyboard interactions.')

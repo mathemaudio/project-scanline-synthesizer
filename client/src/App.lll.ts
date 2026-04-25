@@ -1,6 +1,6 @@
 import { LitElement, type TemplateResult } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
-import { Spec } from '@shared/lll.lll'
+import { Spec } from './system/lll.lll'
 import { AppViewStyles } from './AppViewStyles.lll'
 import { ImageWaveformBank } from './ImageWaveformBank.lll'
 import { ImageWaveformRow } from './ImageWaveformRow.lll'

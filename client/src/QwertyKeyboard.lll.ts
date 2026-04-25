@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from './system/lll.lll'
 import { KeyboardPitch } from './KeyboardPitch.lll'
 
 @Spec('Maps QWERTY keys to chromatic pitches, keeps held-key order, and exposes both active and polyphonic pitch state.')

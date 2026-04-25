@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import { PluckSettings } from './PluckSettings.lll'
 
 @Spec('Generates one polyphonic Karplus-Strong pluck voice with its own string loop, excitation buffer, damping, and brightness state.')

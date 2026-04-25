@@ -1,5 +1,5 @@
 import './PrimitiveSynth.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from './system/lll.lll'
 import { PrimitiveSynth } from './PrimitiveSynth.lll'
 
 @Spec('Verifies primitive synth voice selection, waveform switching, release transitions, and unsupported-audio handling.')

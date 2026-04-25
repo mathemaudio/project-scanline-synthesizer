@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import type { App } from '../App.lll'
 
 @Spec("Loads default and user-selected synthesizer images into the app waveform state.")

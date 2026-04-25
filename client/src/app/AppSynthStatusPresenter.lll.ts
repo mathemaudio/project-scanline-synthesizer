@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import type { KeyboardPitch } from '../KeyboardPitch.lll'
 
 @Spec("Presents synth status label and detail text for ready, playing, releasing, and unsupported engine states.")

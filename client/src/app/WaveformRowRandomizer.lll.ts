@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 
 @Spec('Chooses a nearby uploaded waveform row jump from the upper half of a configured percentage range around the current row.')
 export class WaveformRowRandomizer {

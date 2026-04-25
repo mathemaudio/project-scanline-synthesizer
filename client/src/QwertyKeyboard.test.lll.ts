@@ -1,5 +1,5 @@
 import './QwertyKeyboard.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from './system/lll.lll'
 import { QwertyKeyboard } from './QwertyKeyboard.lll'
 
 @Spec('Verifies mapped QWERTY keyboard note selection and held-key fallback behavior.')

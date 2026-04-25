@@ -1,5 +1,5 @@
 import './AppSoundDesignPanel.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '../system/lll.lll'
 import { AppSoundDesignPanel } from './AppSoundDesignPanel.lll'
 import type { App } from '../App.lll'
 

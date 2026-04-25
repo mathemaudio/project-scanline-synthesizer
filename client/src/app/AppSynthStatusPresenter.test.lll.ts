@@ -1,5 +1,5 @@
 import './AppSynthStatusPresenter.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '../system/lll.lll'
 import { AppSynthStatusPresenter } from './AppSynthStatusPresenter.lll'
 
 @Spec('Verifies the synth status presenter returns the expected labels and detail text for key app states.')

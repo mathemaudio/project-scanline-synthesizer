@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import { html, type TemplateResult } from 'lit'
 import type { App } from '../App.lll'
 import type { SynthPlaybackMode } from '../synth/SynthPlaybackMode.lll'
@@ -19,7 +19,6 @@ export class AppShellRenderer {
 				<main>
 					<header>
 						<div class="header-copy">
-							<p class="eyebrow">Phase 3 — Image Upload and Row-Based Waveform Synth</p>
 							<h1>Scanline Synth</h1>
 							<p class="lead">
 								Upload an image, turn its horizontal rows into single-cycle waveforms, and keep playing the

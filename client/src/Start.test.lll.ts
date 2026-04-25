@@ -1,5 +1,5 @@
 import './Start.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from './system/lll.lll'
 import { Start } from './Start.lll'
 
 @Spec('Covers client bootstrapping behavior for Start.')

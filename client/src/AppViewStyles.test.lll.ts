@@ -1,5 +1,5 @@
 import './AppViewStyles.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec } from './system/lll.lll'
 import { AppViewStyles } from './AppViewStyles.lll'
 import { AppStyleSheet } from './styles/AppStyleSheet.lll'
 

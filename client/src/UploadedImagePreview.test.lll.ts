@@ -1,5 +1,5 @@
 import './UploadedImagePreview.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from './system/lll.lll'
 import { UploadedImagePreview } from './UploadedImagePreview.lll'
 
 @Spec('Exercises the uploaded image preview through visible rendered output only.')

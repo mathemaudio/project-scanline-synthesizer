@@ -1,5 +1,5 @@
 import './AppImageWaveformLoader.lll'
-import { Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { Scenario, ScenarioParameter, Spec, SubjectFactory } from '../system/lll.lll'
 import { AppImageWaveformLoader } from './AppImageWaveformLoader.lll'
 
 @Spec('Verifies the image waveform loader points the synthesizer at the bundled default reference image.')

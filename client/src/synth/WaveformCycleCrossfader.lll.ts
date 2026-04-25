@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 
 @Spec('Builds linear overlap-add joins between repeated waveform cycles without reshaping each cycle internally.')
 export class WaveformCycleCrossfader {

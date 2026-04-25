@@ -1,5 +1,5 @@
 import './AppStyles.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec } from './system/lll.lll'
 import { AppStyles } from './AppStyles.lll'
 
 @Spec('Verifies the shared Scanline Synth style sheet includes the new compact mode row, playback selector, and right-side settings panel selectors.')

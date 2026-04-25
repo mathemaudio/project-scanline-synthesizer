@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import { AppChromeStyleSheet } from './AppChromeStyleSheet.lll'
 import { AppControlPanelStyleSheet } from './AppControlPanelStyleSheet.lll'
 

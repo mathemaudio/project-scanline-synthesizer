@@ -1,5 +1,5 @@
 import './AppControlPanelStyleSheet.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec } from '../system/lll.lll'
 import { AppControlPanelStyleSheet } from './AppControlPanelStyleSheet.lll'
 
 @Spec('Verifies the control-panel style sheet covers the status cards and playback controls.')

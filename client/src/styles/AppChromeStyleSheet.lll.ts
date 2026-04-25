@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import { css } from 'lit'
 
 @Spec('Provides the shared shell, guide, and piano keyboard styles for the Scanline Synth app.')

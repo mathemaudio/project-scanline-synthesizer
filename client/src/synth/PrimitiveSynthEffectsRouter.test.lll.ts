@@ -1,5 +1,5 @@
 import './PrimitiveSynthEffectsRouter.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '../system/lll.lll'
 import { PrimitiveSynthEffectsRouter } from './PrimitiveSynthEffectsRouter.lll'
 
 @Spec('Verifies the shared effects router refreshes existing chorus and delay buses with live parameter values from its owning synth.')

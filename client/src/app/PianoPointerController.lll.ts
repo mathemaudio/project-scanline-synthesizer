@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 
 @Spec('Tracks pointer-driven piano key dragging so entering and leaving keys with the pointer held behaves like a software keyboard.')
 export class PianoPointerController {

@@ -1,5 +1,5 @@
 import './AppChromeStyleSheet.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec } from '../system/lll.lll'
 import { AppChromeStyleSheet } from './AppChromeStyleSheet.lll'
 
 @Spec('Verifies the app chrome style sheet covers the shell and piano keyboard guide selectors.')

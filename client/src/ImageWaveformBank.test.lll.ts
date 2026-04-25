@@ -1,5 +1,5 @@
 import './ImageWaveformBank.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from './system/lll.lll'
 import { ImageWaveformBank } from './ImageWaveformBank.lll'
 
 @Spec('Verifies image rows are converted into normalized waveform banks suitable for audio playback.')

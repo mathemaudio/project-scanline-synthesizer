@@ -1,5 +1,5 @@
 import './AppShellRenderer.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '../system/lll.lll'
 import { AppShellRenderer } from './AppShellRenderer.lll'
 import type { App } from '../App.lll'
 

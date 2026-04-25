@@ -1,5 +1,5 @@
 import './VintageKnob.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '../system/lll.lll'
 import { VintageKnob } from './VintageKnob.lll'
 
 @Spec('Verifies the reusable vintage knob control markup and interaction behavior.')

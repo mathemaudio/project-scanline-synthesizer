@@ -1,5 +1,5 @@
 import './AppStyleSheet.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec } from '../system/lll.lll'
 import { AppStyleSheet } from './AppStyleSheet.lll'
 
 @Spec('Verifies the combined app style sheet still exposes the split chrome and control-panel selectors.')

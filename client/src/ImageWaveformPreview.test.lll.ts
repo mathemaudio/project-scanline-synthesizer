@@ -1,5 +1,5 @@
 import './ImageWaveformPreview.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from './system/lll.lll'
 import { ImageWaveformPreview } from './ImageWaveformPreview.lll'
 
 @Spec('Exercises the waveform preview only through its visible rendered metadata and canvas output.')

@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 
 @Spec('Schedules reusable ADSR curves on Web Audio parameters so the same shape logic can later drive filter or volume envelopes.')
 export class AdsrEnvelope {

@@ -1,5 +1,5 @@
 import './WaveformRowRandomizer.lll'
-import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '@shared/lll.lll'
+import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory } from '../system/lll.lll'
 import { WaveformRowRandomizer } from './WaveformRowRandomizer.lll'
 
 @Spec('Verifies nearby-row randomization behavior for uploaded waveform rows.')

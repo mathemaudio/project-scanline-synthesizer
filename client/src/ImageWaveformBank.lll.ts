@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from './system/lll.lll'
 import { ImageWaveformRow } from './ImageWaveformRow.lll'
 
 @Spec('Builds a bank of normalized single-cycle waveforms by reading image rows through an offscreen canvas.')

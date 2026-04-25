@@ -1,4 +1,4 @@
-import { Spec } from '@shared/lll.lll'
+import { Spec } from '../system/lll.lll'
 import type { App } from '../App.lll'
 
 @Spec('Reads knob-like control values from native sliders and custom vintage knob events for the app.')
