@@ -24,7 +24,7 @@ export class AppChromeStyleSheet {
 			background:
 				radial-gradient(circle at top, rgba(217, 149, 70, 0.22), transparent 36%),
 				linear-gradient(rgba(10, 7, 5, 0.58), rgba(9, 7, 6, 0.82)),
-				url('/images/bg70s/2.webp');
+				url('../../public/images/bg70s/2.webp');
 			background-size: cover;
 			background-position: center;
 			background-repeat: no-repeat;

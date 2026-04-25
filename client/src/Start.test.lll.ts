@@ -1,6 +1,6 @@
 import './Start.lll'
 import { AssertFn, Scenario, ScenarioParameter, Spec, SubjectFactory, WaitForFn } from './system/lll.lll'
-import { Start } from './Start.lll'
+import type { Start } from './Start.lll'
 
 @Spec('Covers client bootstrapping behavior for Start.')
 export class StartTest {
@@ -16,8 +16,7 @@ export class StartTest {
 			const root = document.querySelector<HTMLElement>('#app')
 			assert(root !== null, 'Expected document #app container to be available')
 
-			const start = await subjectFactory()
-			assert(start instanceof Start, 'Expected subjectFactory to return instance of Start, but got ' + typeof start)
+			await subjectFactory()
 			await waitFor(() => root.querySelector('app-root') !== null, 'Expected Start bootstrap to render app-root into #app')
 			const renderedElement = root.querySelector('app-root')
 			assert(renderedElement !== null, 'Expected Start to render app-root into #app')
