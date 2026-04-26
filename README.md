@@ -6,6 +6,10 @@ Scanline Synth is a browser-based synthesizer that turns image data into playabl
 
 It reads the horizontal rows of an image as single-cycle waveforms, lets you play those waveforms from your computer keyboard, a connected MIDI controller, or the on-screen piano, and shapes the result with multiple playback modes and live controls.
 
+## Try it
+
+[project-scanline-synthesizer](https://mathemaudio.github.io/project-scanline-synthesizer/)
+
 ## What it does
 
 - Plays notes from a QWERTY keyboard layout
