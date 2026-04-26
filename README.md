@@ -39,6 +39,17 @@ That means visual texture turns into timbre:
 - **Vite** for local development and bundling
 - **Web Audio API** for synthesis
 
+## GitHub Pages deployment
+
+The site is deployed with GitHub Actions from `.github/workflows/deploy-pages.yml`.
+
+Important note:
+- GitHub Pages itself does **not** need the `.lll/` folder.
+- The earlier CI failure happened because `client/package.json` includes a local development dependency:
+  - `lllts: file:../.lll/vendor/lllts`
+- On GitHub Actions, that ignored local folder does not exist, so `pnpm install` failed before the website build started.
+- The workflow now removes that local-only dependency in CI before installing packages, so Pages can build the static site without `.lll/vendor/lllts`.
+
 ## Getting started
 
 ### Requirements

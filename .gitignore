@@ -51,7 +51,6 @@ vite.config.ts.timestamp-*
 
 llm-raw-stream.txt
 
-.lll/vendor/
 .lll/prompts/
 
 
