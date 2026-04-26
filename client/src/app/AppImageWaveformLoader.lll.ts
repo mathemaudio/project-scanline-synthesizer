@@ -3,7 +3,7 @@ import type { App } from '../App.lll'
 
 @Spec("Loads default and user-selected synthesizer images into the app waveform state.")
 export class AppImageWaveformLoader {
-	public static readonly defaultSynthImageUrl: string = '/images/karamazov_chart.jpg'
+	public static readonly defaultSynthImageUrl: string = `${import.meta.env.BASE_URL}images/karamazov_chart.jpg`
 	public static readonly defaultSynthImageName: string = 'karamazov_chart.jpg'
 
 	public constructor(private readonly source: App) {

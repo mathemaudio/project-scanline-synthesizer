@@ -65,7 +65,7 @@ export class AppImageWaveformLoaderTest {
 							{ samples: [0.25, -0.25], averageBrightness: 0.5 },
 							{ samples: [0.3, -0.3], averageBrightness: 0.6 }
 						],
-						width: imageUrl === '/images/karamazov_chart.jpg' ? 320 : 0,
+						width: imageUrl === AppImageWaveformLoader.defaultSynthImageUrl ? 320 : 0,
 						height: 180
 					}
 				}
