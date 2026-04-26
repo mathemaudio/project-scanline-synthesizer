@@ -132,6 +132,17 @@ export class AppChromeStyleSheet {
 			color: rgba(244, 235, 212, 0.86);
 		}
 
+		.header-link {
+			color: inherit;
+			text-decoration: none;
+		}
+
+		.header-link:hover,
+		.header-link:focus-visible {
+			text-decoration: underline;
+			text-underline-offset: 0.18em;
+		}
+
 		.plate-value {
 			font-family: 'Orbitron', 'Inter', sans-serif;
 			font-size: 1.05rem;

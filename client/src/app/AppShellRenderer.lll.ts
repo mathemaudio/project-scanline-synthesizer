@@ -19,10 +19,14 @@ export class AppShellRenderer {
 				<main>
 					<header>
 						<div class="header-copy">
-							<h1>Scanline Synth</h1>
+							<h1>
+								<a class="header-link" href="https://github.com/mathemaudio/project-scanline-synthesizer" target="_blank" rel="noreferrer">Scanline Synth</a>
+							</h1>
 							<p class="lead">
-								Upload an image, turn its horizontal rows into single-cycle waveforms, and keep playing the
-								QWERTY keyboard while selecting which row shapes the active timbre.
+								<a class="header-link" href="https://github.com/mathemaudio/project-scanline-synthesizer" target="_blank" rel="noreferrer">
+									Upload an image, turn its horizontal rows into single-cycle waveforms, and keep playing the
+									QWERTY keyboard while selecting which row shapes the active timbre.
+								</a>
 							</p>
 						</div>
 						<div class="brand-plate" aria-label="Instrument panel badge">
