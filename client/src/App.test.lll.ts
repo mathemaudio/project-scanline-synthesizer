@@ -280,7 +280,7 @@ export class AppTest {
 			assert(summary.includes('damping') && summary.includes('brightness') && summary.includes('noise'), 'Expected the pluck summary to report damping, brightness, and noise values')
 			assert(dampingValue === '58', 'Expected pluck damping slider to show the default value')
 			assert(brightnessValue === '72', 'Expected pluck brightness slider to show the default value')
-			assert(noiseValue === '18', 'Expected pluck noise blend slider to show the default value')
+			assert(noiseValue === '0', 'Expected pluck noise blend slider to show the default value')
 			return { summary, dampingValue, brightnessValue, noiseValue }
 		} finally {
 			if (originalAudioContext === undefined) {

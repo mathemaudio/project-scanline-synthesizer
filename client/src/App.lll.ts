@@ -122,7 +122,7 @@ export class App extends LitElement {
 	@state()
 	public pluckBrightnessPercent: number = 72
 	@state()
-	public pluckNoiseBlendPercent: number = 18
+	public pluckNoiseBlendPercent: number = 0
 
 	public imageWaveformRows: ImageWaveformRow[] = []
 	public readonly imageWaveformBank = new ImageWaveformBank()
@@ -156,7 +156,7 @@ export class App extends LitElement {
 		pluckSettings: {
 			damping: 0.58,
 			brightness: 0.72,
-			noiseBlend: 0.18
+			noiseBlend: 0
 		},
 		portamentoSeconds: 0.087,
 		onStateChange: (state) => this.applySynthStatusState(state)

@@ -43,16 +43,6 @@ That means visual texture turns into timbre:
 - **Vite** for local development and bundling
 - **Web Audio API** for synthesis
 
-## GitHub Pages deployment
-
-The site is deployed with GitHub Actions from `.github/workflows/deploy-pages.yml`.
-
-Important note:
-- GitHub Pages itself does **not** need the `.lll/` folder.
-- The earlier CI failure happened because `client/package.json` includes a local development dependency:
-  - `lllts: file:../.lll/vendor/lllts`
-- On GitHub Actions, that ignored local folder does not exist, so `pnpm install` failed before the website build started.
-- The workflow now removes that local-only dependency in CI before installing packages, so Pages can build the static site without `.lll/vendor/lllts`.
 
 ## Getting started
 
@@ -94,30 +84,6 @@ pnpm dev:emit
 
 Then open the local Vite URL in your browser.
 
-## Available scripts
-
-Inside `client/package.json`:
-
-- `pnpm dev` — run the local development workflow
-- `pnpm dev:vite` — run Vite only
-- `pnpm dev:emit` — run TypeScript emit watch mode
-- `pnpm typecheck` — TypeScript no-emit watch
-- `pnpm build` — production build
-- `pnpm preview` — preview the production build
-- `pnpm lll-server` — start the LLLTS server
-- `pnpm lll-check` — run the LLLTS project check entrypoint
-
-## How to use the app
-
-1. Start the dev server.
-2. Open the app in a browser.
-3. Use the **QWERTY keyboard** or connect a **MIDI controller** to play notes.
-4. Toggle **monophonic/polyphonic** behavior.
-5. Adjust **portamento** and playback settings.
-6. Switch between **Raw**, **Cutoff**, and **Pluck** modes.
-7. Upload an image to hear its rows as waveforms.
-8. Change the selected row and compare the resulting timbres.
-9. Fine-tune the sound with effects and waveform controls.
 
 ## Controls and features
 

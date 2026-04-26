@@ -70,7 +70,7 @@ export class AppSoundDesignPanelTest {
 			waveformRowRandomnessPercent: 0.5,
 			pluckDampingPercent: 58,
 			pluckBrightnessPercent: 72,
-			pluckNoiseBlendPercent: 18,
+			pluckNoiseBlendPercent: 0,
 			availableRowCount: 2,
 			selectedRowIndex: 0,
 			uploadedImageUrl: null,
@@ -101,7 +101,7 @@ export class AppSoundDesignPanelTest {
 			getPlaybackModeLabel: () => playbackMode === 'pluck' ? 'Pluck' : 'Cutoff',
 			getPortamentoValueLabel: () => '87 ms',
 			renderPlaybackModeOption: () => ({ strings: ['option Playback mode'], values: [] } as unknown),
-			getEnvelopeSummary: () => playbackMode === 'pluck' ? '58% damping · 72% brightness · 18% noise' : '40 ms A · 725 ms D · 15% S · 220 ms R'
+			getEnvelopeSummary: () => playbackMode === 'pluck' ? '58% damping · 72% brightness · 0% noise' : '40 ms A · 725 ms D · 15% S · 220 ms R'
 		} as unknown as App
 	}
 

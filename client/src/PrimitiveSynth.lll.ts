@@ -183,7 +183,7 @@ export class PrimitiveSynth {
 		return {
 			damping: 0.58,
 			brightness: 0.72,
-			noiseBlend: 0.18
+			noiseBlend: 0
 		}
 	}
 
