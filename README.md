@@ -44,7 +44,6 @@ That means visual texture turns into timbre:
 - **Vite** for local development and bundling
 - **Web Audio API** for synthesis
 
-
 ## Getting started
 
 ### Requirements
@@ -84,7 +83,6 @@ pnpm dev:emit
 ```
 
 Then open the local Vite URL in your browser.
-
 
 ## Controls and features
 
@@ -188,7 +186,3 @@ pnpm build
 ## Why the name “Scanline Synth”?
 
 Because the instrument treats image scanlines as sound-generating waveforms. Visual rows become audio cycles.
-
-## License
-
-No license file is currently included in this repository.
