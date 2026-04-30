@@ -22,6 +22,11 @@ export class AppSoundDesignPanel {
 		return this.renderVintageKnob(inputId, label, name, value, min, max, step, `${value}${valueSuffix}`, this.source.onFilterSettingChange)
 	}
 
+	@Spec('Renders one compact labeled FM knob for the two-operator playback mode settings panel.')
+	public renderFmSettingSlider(inputId: string, label: string, name: string, value: number, min: number, max: number, step: number, valueSuffix: string, detail: string): TemplateResult {
+		return this.renderVintageKnob(inputId, label, name, value, min, max, step, `${value}${valueSuffix}`, this.source.onFmSettingChange, detail)
+	}
+
 	@Spec('Renders one compact labeled pluck knob for the Karplus-Strong playback mode settings panel.')
 	public renderPluckSettingSlider(inputId: string, label: string, name: string, value: number, detail: string): TemplateResult {
 		return html`
@@ -100,7 +105,7 @@ export class AppSoundDesignPanel {
 		`
 	}
 
-	@Spec('Renders only the playback settings card that corresponds to the currently selected raw, cutoff, or pluck mode.')
+	@Spec('Renders only the playback settings card that corresponds to the currently selected raw, cutoff, FM, or pluck mode.')
 	public renderPlaybackSettingsPanel(): TemplateResult {
 		if (this.source.playbackMode === 'cutoff') {
 			return html`
@@ -114,6 +119,7 @@ export class AppSoundDesignPanel {
 							<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
 								${this.source.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
 								${this.source.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
+								${this.source.renderPlaybackModeOption('fm', 'FM', '2-op tone')}
 								${this.source.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
 							</div>
 						</div>
@@ -133,6 +139,32 @@ export class AppSoundDesignPanel {
 				`
 		}
 
+		if (this.source.playbackMode === 'fm') {
+			return html`
+					<section class="sound-design-card" aria-label="Playback settings panel">
+						<div class="sound-design-header">
+							<div class="status-label">Playback settings</div>
+							<div id="playback-mode-value" class="plate-value">${this.source.getPlaybackModeLabel()}</div>
+						</div>
+						<div class="mode-selector-card mode-selector-card-inline" aria-label="Playback mode selector">
+							<div class="switch-label">Playback mode</div>
+							<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
+								${this.source.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
+								${this.source.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
+								${this.source.renderPlaybackModeOption('fm', 'FM', '2-op tone')}
+								${this.source.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
+							</div>
+						</div>
+						<div id="playback-settings-mode-copy" class="panel-copy">FM mode uses a sine modulator to bend the pitch of the current carrier, so uploaded image rows still shape the carrier waveform while ratio and depth control the sidebands.</div>
+						<div id="fm-settings-summary" class="settings-summary">${this.source.getEnvelopeSummary()}</div>
+						<div class="settings-grid">
+							${this.renderFmSettingSlider('fm-ratio-slider', 'Mod ratio', 'fm-ratio-percent', this.source.fmRatioPercent, 13, 1200, 1, '%', 'Sets the sine modulator pitch as a multiple of the carrier pitch.')}
+							${this.renderFmSettingSlider('fm-depth-slider', 'FM depth', 'fm-depth-hz', this.source.fmDepthHz, 0, 4000, 5, ' Hz', 'Sets how strongly the sine modulator bends carrier pitch.')}
+						</div>
+					</section>
+				`
+		}
+
 		if (this.source.playbackMode === 'pluck') {
 			return html`
 					<section class="sound-design-card" aria-label="Playback settings panel">
@@ -145,6 +177,7 @@ export class AppSoundDesignPanel {
 							<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
 								${this.source.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
 								${this.source.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
+								${this.source.renderPlaybackModeOption('fm', 'FM', '2-op tone')}
 								${this.source.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
 							</div>
 						</div>
@@ -170,6 +203,7 @@ export class AppSoundDesignPanel {
 						<div class="radio-group" role="radiogroup" aria-label="Playback mode selector">
 							${this.source.renderPlaybackModeOption('raw', 'Raw', 'Play raw')}
 							${this.source.renderPlaybackModeOption('cutoff', 'Cutoff', 'Filter ADSR')}
+							${this.source.renderPlaybackModeOption('fm', 'FM', '2-op tone')}
 							${this.source.renderPlaybackModeOption('pluck', 'Pluck', 'String-style')}
 						</div>
 					</div>

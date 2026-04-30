@@ -14,6 +14,7 @@ import { EffectsSettings } from './synth/EffectsSettings.lll'
 import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
 import { PluckSettings } from './synth/PluckSettings.lll'
+import { FmSettings } from './synth/FmSettings.lll'
 import { WaveformRowRandomizer } from './app/WaveformRowRandomizer.lll'
 import { MidiInputController } from './app/midi/MidiInputController.lll'
 import './ImageWaveformPreview.lll'
@@ -22,13 +23,17 @@ import { AppShellRenderer } from './app/AppShellRenderer.lll'
 import { AppControlValueReader } from './app/AppControlValueReader.lll'
 import { AppImageWaveformLoader } from './app/AppImageWaveformLoader.lll'
 import { AppSynthStatusPresenter } from './app/AppSynthStatusPresenter.lll';
+import { AppControlSettingApplier } from './app/AppControlSettingApplier.lll';
+
 
 @Spec('Renders the Scanline Synth interface around a playable QWERTY keyboard with switchable mono-poly voice behavior, three playback-shaping modes, and uploaded image row waveforms.')
 @customElement('app-root')
 export class App extends LitElement {
+	private readonly appControlSettingApplier = new AppControlSettingApplier(this);
+
 	private readonly appSynthStatusPresenter = new AppSynthStatusPresenter()
 	public readonly appImageWaveformLoader = new AppImageWaveformLoader(this)
-	private readonly appControlValueReader = new AppControlValueReader(this)
+	public readonly appControlValueReader = new AppControlValueReader(this)
 	private readonly appShellRenderer = new AppShellRenderer(this)
 	public readonly appSoundDesignPanel = new AppSoundDesignPanel(this)
 
@@ -123,6 +128,10 @@ export class App extends LitElement {
 	public pluckBrightnessPercent: number = 72
 	@state()
 	public pluckNoiseBlendPercent: number = 0
+	@state()
+	public fmRatioPercent: number = 200
+	@state()
+	public fmDepthHz: number = 120
 
 	public imageWaveformRows: ImageWaveformRow[] = []
 	public readonly imageWaveformBank = new ImageWaveformBank()
@@ -157,6 +166,10 @@ export class App extends LitElement {
 			damping: 0.58,
 			brightness: 0.72,
 			noiseBlend: 0
+		},
+		fmSettings: {
+			ratio: 2,
+			depthHz: 120
 		},
 		portamentoSeconds: 0.087,
 		onStateChange: (state) => this.applySynthStatusState(state)
@@ -282,7 +295,7 @@ export class App extends LitElement {
 	private async onPlaybackModeChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement | null
 		const nextPlaybackMode = input?.value
-		if (nextPlaybackMode !== 'raw' && nextPlaybackMode !== 'cutoff' && nextPlaybackMode !== 'pluck') {
+		if (nextPlaybackMode !== 'raw' && nextPlaybackMode !== 'cutoff' && nextPlaybackMode !== 'fm' && nextPlaybackMode !== 'pluck') {
 			return
 		}
 		this.playbackMode = nextPlaybackMode
@@ -290,7 +303,28 @@ export class App extends LitElement {
 		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
 		this.synth.setEffectsSettings(this.createEffectsSettings())
 		this.synth.setPluckSettings(this.createPluckSettings())
+		this.synth.setFmSettings(this.createFmSettings())
 		await this.rebuildHeldNotesForPlaybackChange()
+	}
+
+	@Spec('Applies one visible filter-setting control change and forwards it through the focused control-setting applier.')
+	public onFilterSettingChange(event: Event) {
+		this.appControlSettingApplier.onFilterSettingChange(event)
+	}
+
+	@Spec('Applies one visible effects control change and forwards it through the focused control-setting applier.')
+	public onEffectsSettingChange(event: Event) {
+		this.appControlSettingApplier.onEffectsSettingChange(event)
+	}
+
+	@Spec('Applies one visible pluck-setting control change and forwards it through the focused control-setting applier.')
+	public onPluckSettingChange(event: Event) {
+		this.appControlSettingApplier.onPluckSettingChange(event)
+	}
+
+	@Spec('Applies one visible FM-setting control change and forwards it through the focused control-setting applier.')
+	public onFmSettingChange(event: Event) {
+		this.appControlSettingApplier.onFmSettingChange(event)
 	}
 
 	@Spec('Moves the mapped QWERTY keyboard one octave down or up and immediately refreshes the synth and visible guide text.')
@@ -315,88 +349,6 @@ export class App extends LitElement {
 	public async onPianoKeyPointerLeave(keyLabel: string) {
 		await this.pianoPointerController.onPointerLeave(keyLabel)
 	}
-
-	@Spec('Applies one visible filter-setting control change and forwards the updated cutoff envelope to the synth engine.')
-	public onFilterSettingChange(event: Event) {
-		const input = this.appControlValueReader.readKnobLikeTarget(event)
-		const nextValue = Number(input?.value ?? '0')
-		if (Number.isFinite(nextValue) === false) {
-			return
-		}
-		const settingName = input?.name ?? ''
-		if (settingName === 'filter-attack-ms') {
-			this.filterAttackMs = nextValue
-		}
-		if (settingName === 'filter-decay-ms') {
-			this.filterDecayMs = nextValue
-		}
-		if (settingName === 'filter-sustain-percent') {
-			this.filterSustainPercent = nextValue
-		}
-		if (settingName === 'filter-release-ms') {
-			this.filterReleaseMs = nextValue
-		}
-		if (settingName === 'filter-base-cutoff-hz') {
-			this.filterBaseCutoffHz = nextValue
-		}
-		if (settingName === 'filter-peak-cutoff-hz') {
-			this.filterPeakCutoffHz = nextValue
-		}
-		if (settingName === 'filter-resonance') {
-			this.filterResonance = nextValue
-		}
-		this.synth.setFilterEnvelopeSettings(this.createFilterEnvelopeSettings())
-	}
-
-	@Spec('Applies one visible effects control change and forwards the updated chorus and delay settings to the synth engine.')
-	public onEffectsSettingChange(event: Event) {
-		const input = this.appControlValueReader.readKnobLikeTarget(event)
-		const nextValue = Number(input?.value ?? '0')
-		if (Number.isFinite(nextValue) === false) {
-			return
-		}
-		const settingName = input?.name ?? ''
-		if (settingName === 'chorus-mix-percent') {
-			this.chorusMixPercent = nextValue
-		}
-		if (settingName === 'chorus-feedback-percent') {
-			this.chorusFeedbackPercent = nextValue
-		}
-		if (settingName === 'chorus-depth-ms') {
-			this.chorusDepthMs = nextValue
-		}
-		if (settingName === 'delay-mix-percent') {
-			this.delayMixPercent = nextValue
-		}
-		if (settingName === 'delay-feedback-percent') {
-			this.delayFeedbackPercent = nextValue
-		}
-		if (settingName === 'delay-time-ms') {
-			this.delayTimeMs = nextValue
-		}
-		this.synth.setEffectsSettings(this.createEffectsSettings())
-	}
-
-	@Spec('Applies one visible pluck-setting control change and forwards the updated Karplus-Strong settings to the synth engine.')
-	public onPluckSettingChange(event: Event) {
-		const input = this.appControlValueReader.readKnobLikeTarget(event)
-		const nextValue = Number(input?.value ?? '0')
-		if (Number.isFinite(nextValue) === false) {
-			return
-		}
-		const settingName = input?.name ?? ''
-		if (settingName === 'pluck-damping-percent') {
-			this.pluckDampingPercent = nextValue
-		}
-		if (settingName === 'pluck-brightness-percent') {
-			this.pluckBrightnessPercent = nextValue
-		}
-		if (settingName === 'pluck-noise-blend-percent') {
-			this.pluckNoiseBlendPercent = nextValue
-		}
-		this.synth.setPluckSettings(this.createPluckSettings())
-	}
-
 	@Spec('Rebuilds any held notes after a playback-mode change so the currently selected keys adopt the new voice routing immediately.')
 	private async rebuildHeldNotesForPlaybackChange() {
 		const heldPitches = this.getMergedHeldPitches()
@@ -410,7 +362,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Builds the current filter-envelope settings object from the visible slider state.')
-	private createFilterEnvelopeSettings(): FilterEnvelopeSettings {
+	public createFilterEnvelopeSettings(): FilterEnvelopeSettings {
 		return {
 			attackSeconds: this.filterAttackMs / 1000,
 			decaySeconds: this.filterDecayMs / 1000,
@@ -423,7 +375,7 @@ export class App extends LitElement {
 	}
 
 	@Spec('Builds the current chorus and delay settings object from the visible slider state.')
-	private createEffectsSettings(): EffectsSettings {
+	public createEffectsSettings(): EffectsSettings {
 		return {
 			chorusMix: this.chorusMixPercent / 100,
 			chorusFeedback: this.chorusFeedbackPercent / 100,
@@ -435,11 +387,18 @@ export class App extends LitElement {
 	}
 
 	@Spec('Builds the current pluck settings object from the visible pluck slider state.')
-	private createPluckSettings(): PluckSettings {
+	public createPluckSettings(): PluckSettings {
 		return {
 			damping: this.pluckDampingPercent / 100,
 			brightness: this.pluckBrightnessPercent / 100,
 			noiseBlend: this.pluckNoiseBlendPercent / 100
+		}
+	}
+	@Spec('Builds the current FM settings object from the visible FM slider state.')
+	public createFmSettings(): FmSettings {
+		return {
+			ratio: this.fmRatioPercent / 100,
+			depthHz: this.fmDepthHz
 		}
 	}
 	@Spec('Updates the visible active key, note, and pitch cards to match the latest keyboard-leading pitch.')
@@ -520,7 +479,7 @@ export class App extends LitElement {
 		const selectedRow = this.imageWaveformRows[this.selectedRowIndex] ?? null
 		if (selectedRow === null) {
 			this.synth.setWaveformSamples(null)
-			this.waveformLabel = this.playbackMode === 'pluck' ? 'Default pluck source' : 'Sine'
+			this.waveformLabel = this.playbackMode === 'pluck' ? 'Default pluck source' : this.playbackMode === 'fm' ? 'FM sine carrier' : 'Sine'
 			this.waveformDetailText = 'No uploaded image row is active yet.'
 			return
 		}
@@ -620,6 +579,9 @@ export class App extends LitElement {
 		if (this.playbackMode === 'cutoff') {
 			return 'Cutoff'
 		}
+		if (this.playbackMode === 'fm') {
+			return 'FM'
+		}
 		if (this.playbackMode === 'pluck') {
 			return 'Pluck'
 		}
@@ -640,6 +602,9 @@ export class App extends LitElement {
 	public getEnvelopeSummary(): string {
 		if (this.playbackMode === 'cutoff') {
 			return `${this.filterAttackMs} ms A · ${this.filterDecayMs} ms D · ${this.filterSustainPercent}% S · ${this.filterReleaseMs} ms R`
+		}
+		if (this.playbackMode === 'fm') {
+			return `${(this.fmRatioPercent / 100).toFixed(2)}× ratio · ${this.fmDepthHz} Hz depth`
 		}
 		if (this.playbackMode === 'pluck') {
 			return `${this.pluckDampingPercent}% damping · ${this.pluckBrightnessPercent}% brightness · ${this.pluckNoiseBlendPercent}% noise`

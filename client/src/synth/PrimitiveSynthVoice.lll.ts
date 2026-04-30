@@ -8,4 +8,6 @@ export type PrimitiveSynthVoice = {
 	oscillator: OscillatorNode | null
 	filterNode: BiquadFilterNode | null
 	pluckVoice: KarplusStrongPluckVoice | null
+	modulatorOscillator: OscillatorNode | null
+	modulationDepthNode: GainNode | null
 }

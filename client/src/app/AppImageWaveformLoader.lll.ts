@@ -29,7 +29,7 @@ export class AppImageWaveformLoader {
 				this.source.availableRowCount = 0
 				this.source.selectedRowIndex = 0
 				this.source.synth.setWaveformSamples(null)
-				this.source.waveformLabel = this.source.playbackMode === 'pluck' ? 'Default pluck source' : 'Sine'
+				this.source.waveformLabel = this.source.playbackMode === 'pluck' ? 'Default pluck source' : this.source.playbackMode === 'fm' ? 'FM sine carrier' : 'Sine'
 				this.source.uploadedImageUrl = null
 				this.source.uploadedImageName = 'No image selected'
 				this.source.waveformDetailText = 'The default synthesizer image could not be decoded, so the synth stayed on its built-in waveform.'
@@ -62,7 +62,7 @@ export class AppImageWaveformLoader {
 				this.source.availableRowCount = 0
 				this.source.selectedRowIndex = 0
 				this.source.synth.setWaveformSamples(null)
-				this.source.waveformLabel = this.source.playbackMode === 'pluck' ? 'Default pluck source' : 'Sine'
+				this.source.waveformLabel = this.source.playbackMode === 'pluck' ? 'Default pluck source' : this.source.playbackMode === 'fm' ? 'FM sine carrier' : 'Sine'
 				this.source.waveformDetailText = 'The selected image could not be decoded into waveform rows, so the synth stayed on its built-in waveform.'
 			}
 		}

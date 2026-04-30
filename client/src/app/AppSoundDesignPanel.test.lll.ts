@@ -19,6 +19,19 @@ export class AppSoundDesignPanelTest {
 		return { markup }
 	}
 
+	@Scenario('fm playback settings render ratio and depth controls')
+	static async rendersFmPlaybackControls(subjectFactory: SubjectFactory<AppSoundDesignPanel>, scenario?: ScenarioParameter): Promise<{ markup: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const panel = new AppSoundDesignPanel(this.createAppStub('fm'))
+		const playbackPanel = panel.renderPlaybackSettingsPanel()
+		const markup = `${playbackPanel.strings.join(' ')} ${playbackPanel.values.map((value) => String(value)).join(' ')}`
+		assert(markup.includes('FM mode uses a sine modulator to bend the pitch of the current carrier'), 'Expected FM playback copy to describe the new two-operator path')
+		assert(markup.includes('fm-settings-summary'), 'Expected the FM settings summary region to render in FM mode')
+		assert(playbackPanel.values.length >= 7, 'Expected the FM panel to expose nested values for its mode options and knob controls')
+		return { markup }
+	}
+
 	@Scenario('pluck playback settings render damping brightness and noise controls')
 	static async rendersPluckPlaybackControls(subjectFactory: SubjectFactory<AppSoundDesignPanel>, scenario?: ScenarioParameter): Promise<{ markup: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -49,7 +62,7 @@ export class AppSoundDesignPanelTest {
 	}
 
 	@Spec('Builds the minimal app stub needed by the sound-design panel tests.')
-	private static createAppStub(playbackMode: 'cutoff' | 'pluck' = 'cutoff'): App {
+	private static createAppStub(playbackMode: 'cutoff' | 'fm' | 'pluck' = 'cutoff'): App {
 		return {
 			playbackMode,
 			portamentoMs: 87,
@@ -71,6 +84,8 @@ export class AppSoundDesignPanelTest {
 			pluckDampingPercent: 58,
 			pluckBrightnessPercent: 72,
 			pluckNoiseBlendPercent: 0,
+			fmRatioPercent: 200,
+			fmDepthHz: 120,
 			availableRowCount: 2,
 			selectedRowIndex: 0,
 			uploadedImageUrl: null,
@@ -90,6 +105,7 @@ export class AppSoundDesignPanelTest {
 			onEffectsSettingChange: () => undefined,
 			onFilterSettingChange: () => undefined,
 			onPluckSettingChange: () => undefined,
+			onFmSettingChange: () => undefined,
 			onKeyboardOctaveShift: async () => undefined,
 			onImageSelection: () => undefined,
 			onRowSelectionChange: () => undefined,
@@ -98,10 +114,10 @@ export class AppSoundDesignPanelTest {
 			onWaveformRowRandomnessChange: () => undefined,
 			createWaveformPreviewSamples: () => [0, 1, 0, 1],
 			createWaveformPreviewSeamRatios: () => [1 / 3, 2 / 3],
-			getPlaybackModeLabel: () => playbackMode === 'pluck' ? 'Pluck' : 'Cutoff',
+			getPlaybackModeLabel: () => playbackMode === 'pluck' ? 'Pluck' : playbackMode === 'fm' ? 'FM' : 'Cutoff',
 			getPortamentoValueLabel: () => '87 ms',
 			renderPlaybackModeOption: () => ({ strings: ['option Playback mode'], values: [] } as unknown),
-			getEnvelopeSummary: () => playbackMode === 'pluck' ? '58% damping · 72% brightness · 0% noise' : '40 ms A · 725 ms D · 15% S · 220 ms R'
+			getEnvelopeSummary: () => playbackMode === 'pluck' ? '58% damping · 72% brightness · 0% noise' : playbackMode === 'fm' ? '2.00× ratio · 120 Hz depth' : '40 ms A · 725 ms D · 15% S · 220 ms R'
 		} as unknown as App
 	}
 

@@ -2,15 +2,20 @@ import { Spec } from './system/lll.lll'
 import { AdsrEnvelope } from './synth/AdsrEnvelope.lll'
 import { EffectsSettings } from './synth/EffectsSettings.lll'
 import { FilterEnvelopeSettings } from './synth/FilterEnvelopeSettings.lll'
+import { FmSettings } from './synth/FmSettings.lll'
 import { KarplusStrongPluckVoice } from './synth/KarplusStrongPluckVoice.lll'
 import { PluckSettings } from './synth/PluckSettings.lll'
 import { PrimitiveSynthVoice } from './synth/PrimitiveSynthVoice.lll'
 import { SynthPlaybackMode } from './synth/SynthPlaybackMode.lll'
 import { PrimitiveSynthEffectsRouter } from './synth/PrimitiveSynthEffectsRouter.lll';
+import { PrimitiveSynthFmVoiceBuilder } from './synth/PrimitiveSynthFmVoiceBuilder.lll';
 
 
-@Spec('Provides a minimal browser synth voice engine that can switch between raw playback, filter-envelope playback, and a Karplus-Strong pluck mode while using uploaded image-derived waveforms when available.')
+
+@Spec('Provides a minimal browser synth voice engine that can switch between raw playback, filter-envelope playback, simple two-operator FM playback, and a Karplus-Strong pluck mode while using uploaded image-derived waveforms when available.')
 export class PrimitiveSynth {
+	private readonly primitiveSynthFmVoiceBuilder = new PrimitiveSynthFmVoiceBuilder(this);
+
 	private readonly primitiveSynthEffectsRouter = new PrimitiveSynthEffectsRouter(this);
 
 	private readonly attackDurationSeconds: number
@@ -29,10 +34,11 @@ export class PrimitiveSynth {
 	private requestVersion: number = 0
 	private isMonophonic: boolean
 	private waveformSamples: number[] | null = null
-	private playbackMode: SynthPlaybackMode
+	public playbackMode: SynthPlaybackMode
 	private filterEnvelopeSettings: FilterEnvelopeSettings
 	public effectsSettings: EffectsSettings
 	private pluckSettings: PluckSettings
+	public fmSettings: FmSettings
 	private portamentoSeconds: number
 	private lastMonophonicFrequencyHz: number | null = null
 
@@ -46,6 +52,7 @@ export class PrimitiveSynth {
 			filterEnvelopeSettings?: FilterEnvelopeSettings
 			effectsSettings?: EffectsSettings
 			pluckSettings?: PluckSettings
+			fmSettings?: FmSettings
 			portamentoSeconds?: number
 			createAudioContext?: () => AudioContext | null
 			onStateChange?: (state: 'ready' | 'playing' | 'releasing' | 'unsupported') => void
@@ -62,6 +69,7 @@ export class PrimitiveSynth {
 		this.filterEnvelopeSettings = this.normalizeFilterEnvelopeSettings(options.filterEnvelopeSettings ?? this.createDefaultFilterEnvelopeSettings())
 		this.effectsSettings = this.normalizeEffectsSettings(options.effectsSettings ?? this.createDefaultEffectsSettings())
 		this.pluckSettings = this.normalizePluckSettings(options.pluckSettings ?? this.createDefaultPluckSettings())
+		this.fmSettings = this.normalizeFmSettings(options.fmSettings ?? this.createDefaultFmSettings())
 		this.portamentoSeconds = this.normalizePortamentoSeconds(options.portamentoSeconds ?? 0)
 		this.createAudioContext = options.createAudioContext ?? (() => this.createBrowserAudioContext())
 		this.onStateChange = options.onStateChange ?? null
@@ -79,7 +87,7 @@ export class PrimitiveSynth {
 		this.portamentoSeconds = this.normalizePortamentoSeconds(portamentoSeconds)
 	}
 
-	@Spec('Switches the synth between raw playback, filter-envelope playback, and Karplus-Strong pluck playback.')
+	@Spec('Switches the synth between raw playback, filter-envelope playback, simple two-operator FM playback, and Karplus-Strong pluck playback.')
 	setPlaybackMode(playbackMode: SynthPlaybackMode) {
 		this.playbackMode = playbackMode
 	}
@@ -100,6 +108,12 @@ export class PrimitiveSynth {
 	setPluckSettings(pluckSettings: PluckSettings) {
 		this.pluckSettings = this.normalizePluckSettings(pluckSettings)
 		this.refreshActivePluckVoices()
+	}
+
+	@Spec('Replaces the active two-operator FM ratio and depth settings and updates any currently sounding FM voices with the new modulation amount.')
+	setFmSettings(fmSettings: FmSettings) {
+		this.fmSettings = this.normalizeFmSettings(fmSettings)
+		this.refreshActiveFmVoices()
 	}
 
 	@Spec('Replaces the default sine oscillator shape with one uploaded image row waveform or clears back to the built-in raw oscillator shape when null is provided.')
@@ -176,6 +190,22 @@ export class PrimitiveSynth {
 			return null
 		}
 		return new (maybeConstructor as new () => AudioContext)()
+	}
+
+	@Spec('Returns the default FM settings used when callers do not provide any explicit modulation ratio and depth values.')
+	private createDefaultFmSettings(): FmSettings {
+		return {
+			ratio: 2,
+			depthHz: 120
+		}
+	}
+
+	@Spec('Clamps one FM-settings object into stable musical ranges before the synth uses it for two-operator modulation.')
+	private normalizeFmSettings(fmSettings: FmSettings): FmSettings {
+		return {
+			ratio: Math.max(0.125, Math.min(12, fmSettings.ratio)),
+			depthHz: Math.max(0, Math.min(4000, fmSettings.depthHz))
+		}
 	}
 
 	@Spec('Returns the default pluck settings used when callers do not provide any explicit Karplus-Strong shaping values.')
@@ -293,35 +323,40 @@ export class PrimitiveSynth {
 				playbackMode: this.playbackMode,
 				oscillator: null,
 				filterNode: null,
-				pluckVoice
+				pluckVoice,
+				modulatorOscillator: null,
+				modulationDepthNode: null
 			}
 		}
 		const oscillator = audioContext.createOscillator()
 		const voiceNodes = this.createOscillatorVoiceNodes(audioContext)
 		this.configureOscillatorWaveform(oscillator, audioContext)
-		this.scheduleOscillatorFrequencyStart(oscillator, frequencyHz, audioContext.currentTime)
+		const frequencyStart = this.scheduleOscillatorFrequencyStart(oscillator, frequencyHz, audioContext.currentTime)
+		const fmNodes = this.primitiveSynthFmVoiceBuilder.createFmVoiceNodes(audioContext, oscillator, frequencyHz, frequencyStart.startTime, frequencyStart.targetFrequencyHz)
 		voiceNodes.gainNode.gain.cancelScheduledValues(audioContext.currentTime)
 		voiceNodes.gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime)
 		this.scheduleGainEnvelope(voiceNodes.gainNode, audioContext.currentTime)
 		this.scheduleFilterEnvelope(voiceNodes.filterNode, audioContext.currentTime)
 		oscillator.connect(voiceNodes.inputNode)
 		this.connectVoiceOutput(voiceNodes.outputNode, audioContext)
-		this.trackOscillatorVoiceEnd(frequencyKey, oscillator, voiceNodes.gainNode, voiceNodes.filterNode)
+		this.trackOscillatorVoiceEnd(frequencyKey, oscillator, voiceNodes.gainNode, voiceNodes.filterNode, fmNodes.modulatorOscillator, fmNodes.modulationDepthNode)
 		oscillator.start(audioContext.currentTime)
+		fmNodes.modulatorOscillator?.start(audioContext.currentTime)
 		return {
 			frequencyHz,
 			gainNode: voiceNodes.gainNode,
 			playbackMode: this.playbackMode,
 			oscillator,
 			filterNode: voiceNodes.filterNode,
-			pluckVoice: null
+			pluckVoice: null,
+			modulatorOscillator: fmNodes.modulatorOscillator,
+			modulationDepthNode: fmNodes.modulationDepthNode
 		}
 	}
-
-	@Spec('Builds the oscillator audio-node chain for one raw or cutoff voice according to the active playback mode.')
+	@Spec('Builds the oscillator audio-node chain for one raw, cutoff, or FM voice according to the active playback mode.')
 	private createOscillatorVoiceNodes(audioContext: AudioContext): { gainNode: GainNode, filterNode: BiquadFilterNode | null, inputNode: AudioNode, outputNode: AudioNode } {
 		const gainNode = audioContext.createGain()
-		if (this.playbackMode === 'raw') {
+		if (this.playbackMode === 'raw' || this.playbackMode === 'fm') {
 			return { gainNode, filterNode: null, inputNode: gainNode, outputNode: gainNode }
 		}
 		const filterNode = audioContext.createBiquadFilter()
@@ -438,7 +473,7 @@ export class PrimitiveSynth {
 	}
 
 	@Spec('Starts one new oscillator either directly at its target pitch or from the remembered monophonic pitch when portamento should glide from the last played note.')
-	private scheduleOscillatorFrequencyStart(oscillator: OscillatorNode, targetFrequencyHz: number, startTime: number) {
+	private scheduleOscillatorFrequencyStart(oscillator: OscillatorNode, targetFrequencyHz: number, startTime: number): { startTime: number, startFrequencyHz: number, targetFrequencyHz: number } {
 		const startFrequencyHz = this.getPortamentoStartFrequencyHz(targetFrequencyHz)
 		oscillator.frequency.cancelScheduledValues(startTime)
 		oscillator.frequency.setValueAtTime(startFrequencyHz, startTime)
@@ -446,6 +481,7 @@ export class PrimitiveSynth {
 			oscillator.frequency.linearRampToValueAtTime(targetFrequencyHz, startTime + this.portamentoSeconds)
 		}
 		this.lastMonophonicFrequencyHz = targetFrequencyHz
+		return { startTime, startFrequencyHz, targetFrequencyHz }
 	}
 
 	@Spec('Chooses the pitch a fresh note should glide from so portamento can remain active whenever a remembered prior pitch exists.')
@@ -483,6 +519,7 @@ export class PrimitiveSynth {
 			} else {
 				voice.oscillator.frequency.linearRampToValueAtTime(nextFrequencyHz, audioContext.currentTime + this.portamentoSeconds)
 			}
+			this.refreshFmVoice(voice, audioContext.currentTime)
 		}
 		if (voice.pluckVoice !== null) {
 			voice.pluckVoice.retune(nextFrequencyHz, this.waveformSamples)
@@ -528,6 +565,7 @@ export class PrimitiveSynth {
 		voice.gainNode.gain.setValueAtTime(safeStartGain, currentTime)
 		voice.gainNode.gain.exponentialRampToValueAtTime(0.0001, currentTime + fadeDurationSeconds)
 		voice.pluckVoice?.release(currentTime, fadeDurationSeconds)
+		voice.modulatorOscillator?.stop(currentTime + fadeDurationSeconds + 0.01)
 		voice.oscillator?.stop(currentTime + fadeDurationSeconds + 0.01)
 		if (voice.pluckVoice !== null) {
 			this.scheduleTimeout(() => voice.pluckVoice?.stopImmediately(), Math.ceil((fadeDurationSeconds + 0.02) * 1000))
@@ -556,6 +594,27 @@ export class PrimitiveSynth {
 			}
 			voice.pluckVoice?.retune(voice.frequencyHz, this.waveformSamples)
 		}
+	}
+
+	@Spec('Refreshes active FM voices with the latest ratio and depth values while keeping their current carrier waveform intact.')
+	private refreshActiveFmVoices() {
+		if (this.audioContext === null) {
+			return
+		}
+		for (const voice of this.activeVoicesByFrequencyKey.values()) {
+			this.refreshFmVoice(voice, this.audioContext.currentTime)
+		}
+	}
+
+	@Spec('Refreshes one FM voice modulation rate and depth based on its tracked target note frequency.')
+	private refreshFmVoice(voice: PrimitiveSynthVoice, currentTime: number) {
+		if (voice.playbackMode !== 'fm' || voice.modulatorOscillator === null || voice.modulationDepthNode === null) {
+			return
+		}
+		voice.modulatorOscillator.frequency.cancelScheduledValues(currentTime)
+		voice.modulatorOscillator.frequency.setValueAtTime(Math.max(0.001, voice.frequencyHz * this.fmSettings.ratio), currentTime)
+		voice.modulationDepthNode.gain.cancelScheduledValues(currentTime)
+		voice.modulationDepthNode.gain.setValueAtTime(this.fmSettings.depthHz, currentTime)
 	}
 
 	@Spec('Refreshes active Karplus-Strong voices with the latest live damping and brightness settings while leaving their current excitation source intact.')
@@ -600,9 +659,11 @@ export class PrimitiveSynth {
 	}
 
 	@Spec('Disconnects finished oscillator nodes and prevents stale voice endings from overriding newer active note state.')
-	private trackOscillatorVoiceEnd(frequencyKey: string, oscillator: OscillatorNode, gainNode: GainNode, filterNode: BiquadFilterNode | null) {
+	private trackOscillatorVoiceEnd(frequencyKey: string, oscillator: OscillatorNode, gainNode: GainNode, filterNode: BiquadFilterNode | null, modulatorOscillator: OscillatorNode | null, modulationDepthNode: GainNode | null) {
 		oscillator.onended = () => {
 			oscillator.disconnect()
+			modulatorOscillator?.disconnect()
+			modulationDepthNode?.disconnect()
 			filterNode?.disconnect()
 			gainNode.disconnect()
 			const activeVoice = this.activeVoicesByFrequencyKey.get(frequencyKey)

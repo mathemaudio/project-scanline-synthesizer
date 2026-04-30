@@ -17,9 +17,10 @@ It reads the horizontal rows of an image as single-cycle waveforms, lets you pla
 - Supports on-screen piano interaction with pointer dragging
 - Loads a default synth image on startup
 - Lets you upload your own image and convert each row into a waveform
-- Switches between three playback modes:
+- Switches between four playback modes:
   - **Raw**: direct waveform playback
   - **Cutoff**: waveform playback through a filter ADSR shape
+  - **FM**: 2-operator FM where a sine modulator bends the pitch of the current carrier waveform
   - **Pluck**: Karplus-Strong style string/pluck synthesis
 - Supports **monophonic** and **polyphonic** behavior
 - Includes **portamento**, **filter controls**, **chorus**, **delay**, **waveform crossfade**, and **row randomness**
@@ -114,6 +115,17 @@ Plays the current waveform directly with minimal shaping.
 
 Routes the waveform through a low-pass filter with ADSR-style cutoff control. This is the default mode and gives the instrument its more animated synth behavior.
 
+#### FM
+
+Uses a simple 2-operator FM design.
+
+A sine-wave modulator drives the pitch of the current carrier, while the currently selected image row still acts as the carrier waveform when an image waveform is loaded.
+
+This mode adds two dedicated controls:
+
+- **Mod ratio**: sets the modulator frequency relative to the carrier pitch
+- **FM depth**: sets how strongly the modulator bends the carrier pitch
+
 #### Pluck
 
 Uses a Karplus-Strong inspired pluck/string model for a more percussive, string-like response.
@@ -136,6 +148,7 @@ The app includes controls for:
 - filter attack, decay, sustain, release, cutoff, resonance
 - chorus mix, feedback, and depth
 - delay mix, feedback, and time
+- FM modulation ratio and depth
 - pluck damping, brightness, and noise blend
 - waveform seam crossfade
 - waveform row randomness
@@ -148,6 +161,7 @@ The project includes LLLTS tests in `client/src/*.test.lll.ts`, including behavi
 - portamento defaults and updates
 - playback mode switching
 - cutoff settings visibility and summaries
+- FM settings visibility and summaries
 - keyboard play while changing modes
 
 To run the main project validation:

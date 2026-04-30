@@ -10,7 +10,7 @@ export class AppSynthStatusPresenter {
 	@Spec('Creates the visible synth status label and detail text that reflect the current voice mode and playback-shaping mode.')
 	public createSynthStatusSnapshot(options: {
 		state: 'ready' | 'playing' | 'releasing' | 'unsupported'
-		playbackMode: 'raw' | 'cutoff' | 'pluck'
+		playbackMode: 'raw' | 'cutoff' | 'fm' | 'pluck'
 		isMonophonic: boolean
 		soundingVoiceCount: number
 		activePitch: KeyboardPitch | null
@@ -20,6 +20,12 @@ export class AppSynthStatusPresenter {
 				return {
 					noteStateLabel: 'Ready',
 					noteDetailText: 'Cutoff mode is armed. Newly played notes open their low-pass filter with a visible filter ADSR, then settle back to the sustain cutoff while the key is held.'
+				}
+			}
+			if (options.playbackMode === 'fm') {
+				return {
+					noteStateLabel: 'Ready',
+					noteDetailText: 'FM mode is armed. A sine modulator is ready to bend the pitch of the current carrier while the uploaded waveform row still shapes that carrier tone.'
 				}
 			}
 			if (options.playbackMode === 'pluck') {
@@ -43,6 +49,14 @@ export class AppSynthStatusPresenter {
 					noteDetailText: options.activePitch === null
 						? 'The filter ADSR is ready to open and settle the low-pass cutoff on the next played note.'
 						: `${options.activePitch.noteLabel} is playing through the cutoff mode. The filter opens quickly, then settles into its sustain cutoff while the note stays held.`
+				}
+			}
+			if (options.playbackMode === 'fm') {
+				return {
+					noteStateLabel: 'Playing',
+					noteDetailText: options.activePitch === null
+						? 'The FM voice is ready with a sine modulator driving the current carrier pitch.'
+						: `${options.activePitch.noteLabel} is sounding in FM mode with a sine modulator bending the current carrier waveform.`
 				}
 			}
 			if (options.playbackMode === 'pluck') {
@@ -74,6 +88,12 @@ export class AppSynthStatusPresenter {
 				return {
 					noteStateLabel: 'Releasing',
 					noteDetailText: 'All held keys are up, so the filtered voice is fading out while the cutoff closes back toward its base position.'
+				}
+			}
+			if (options.playbackMode === 'fm') {
+				return {
+					noteStateLabel: 'Releasing',
+					noteDetailText: 'All held keys are up, so the FM carrier and its sine modulator are fading out together through the short release tail.'
 				}
 			}
 			if (options.playbackMode === 'pluck') {

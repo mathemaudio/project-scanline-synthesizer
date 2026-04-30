@@ -258,6 +258,39 @@ export class AppTest {
 		}
 	}
 
+	@Scenario('fm playback settings show ratio and depth controls while the mode label switches')
+	static async showsFmPlaybackControls(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ summary: string, ratioValue: string, depthValue: string, modeCopy: string }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		const waitFor: WaitForFn = scenario?.waitFor ?? this.failFastWaitFor
+		const originalAudioContext = (globalThis as Record<string, unknown>)['AudioContext']
+			; (globalThis as Record<string, unknown>)['AudioContext'] = this.createBehavioralAudioContextConstructor()
+		try {
+			const app = await subjectFactory()
+			await this.prepareMountedApp(app, waitFor)
+			const fmRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-fm')
+			assert(fmRadio !== null && fmRadio !== undefined, 'Expected FM playback radio button to exist')
+			fmRadio.checked = true
+			fmRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			await app.updateComplete
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'FM', 'Expected playback settings to switch to FM before checking the new controls')
+			const summary = this.readText(app, '#fm-settings-summary')
+			const ratioValue = this.readTextFromValueContainer(app, '#fm-ratio-slider')
+			const depthValue = this.readTextFromValueContainer(app, '#fm-depth-slider')
+			const modeCopy = this.readText(app, '#playback-settings-mode-copy')
+			assert(summary.includes('ratio') && summary.includes('depth'), 'Expected the FM summary to report ratio and depth values')
+			assert(ratioValue === '200', 'Expected FM ratio slider to show the default value')
+			assert(depthValue === '120', 'Expected FM depth slider to show the default value')
+			assert(modeCopy.includes('sine modulator') && modeCopy.includes('carrier'), 'Expected the FM panel copy to describe the two-operator carrier and modulator path')
+			return { summary, ratioValue, depthValue, modeCopy }
+		} finally {
+			if (originalAudioContext === undefined) {
+				delete (globalThis as Record<string, unknown>)['AudioContext']
+			} else {
+				(globalThis as Record<string, unknown>)['AudioContext'] = originalAudioContext
+			}
+		}
+	}
+
 	@Scenario('pluck playback settings show damping brightness and noise controls')
 	static async showsPluckPlaybackControls(subjectFactory: SubjectFactory<App>, scenario?: ScenarioParameter): Promise<{ summary: string, dampingValue: string, brightnessValue: string, noiseValue: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -302,9 +335,11 @@ export class AppTest {
 			await this.prepareMountedApp(app, waitFor)
 			const rawRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-raw')
 			const cutoffRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-cutoff')
+			const fmRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-fm')
 			const pluckRadio = app.shadowRoot?.querySelector<HTMLInputElement>('#playback-mode-pluck')
 			assert(rawRadio !== null && rawRadio !== undefined, 'Expected raw playback radio button to exist')
 			assert(cutoffRadio !== null && cutoffRadio !== undefined, 'Expected cutoff playback radio button to exist')
+			assert(fmRadio !== null && fmRadio !== undefined, 'Expected FM playback radio button to exist')
 			assert(pluckRadio !== null && pluckRadio !== undefined, 'Expected pluck playback radio button to exist')
 
 			rawRadio.checked = true
@@ -317,6 +352,11 @@ export class AppTest {
 			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Cutoff', 'Expected playback settings label to switch to Cutoff')
 			const cutoffLabel = this.readText(app, '#effects-panel-value')
 
+			fmRadio.checked = true
+			fmRadio.dispatchEvent(new Event('change', { bubbles: true }))
+			await waitFor(() => this.readText(app, '#playback-mode-value') === 'FM', 'Expected playback settings label to switch to FM')
+			const fmLabel = this.readText(app, '#effects-panel-value')
+
 			pluckRadio.checked = true
 			pluckRadio.dispatchEvent(new Event('change', { bubbles: true }))
 			await waitFor(() => this.readText(app, '#playback-mode-value') === 'Pluck', 'Expected playback settings label to switch to Pluck')
@@ -326,6 +366,7 @@ export class AppTest {
 
 			assert(rawLabel === 'Always on', 'Expected effects panel to stay visible in raw mode')
 			assert(cutoffLabel === 'Always on', 'Expected effects panel to stay visible in cutoff mode')
+			assert(fmLabel === 'Always on', 'Expected effects panel to stay visible in FM mode')
 			assert(pluckLabel === 'Always on', 'Expected effects panel to stay visible in pluck mode')
 			assert(chorusLabel === 'chorus-mix-slider', 'Expected effects controls to remain visible below playback settings across modes')
 			return { rawLabel, cutoffLabel, pluckLabel, chorusLabel }

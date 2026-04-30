@@ -193,6 +193,65 @@ export class PrimitiveSynthTest {
 		return { activeVoiceCount, periodicWaveCallCount, oscillatorType }
 	}
 
+	@Scenario('fm playback mode adds a sine modulator while keeping the carrier waveform custom when image samples are loaded')
+	static async usesTwoOperatorFmWithImageCarrier(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, oscillatorCount: number, modulatorType: string, periodicWaveCallCount: number, lastModulatorFrequencyHz: number, lastModulationDepthHz: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			playbackMode: 'fm',
+			fmSettings: {
+				ratio: 3,
+				depthHz: 240
+			},
+			createAudioContext: () => fakeAudioContext
+		})
+		synth.setWaveformSamples([-1, -0.5, 0.5, 1])
+		const didStart = await synth.startNote(220)
+		const activeVoiceCount = synth.getActiveVoiceCount()
+		const oscillatorCount = (fakeAudioContext as unknown as { oscillatorCount: number }).oscillatorCount
+		const oscillatorTypes = (fakeAudioContext as unknown as { oscillatorTypes: string[] }).oscillatorTypes
+		const modulatorType = oscillatorTypes[oscillatorTypes.length - 1] ?? ''
+		const periodicWaveCallCount = (fakeAudioContext as unknown as { periodicWaveCallCount: number }).periodicWaveCallCount
+		const oscillatorFrequencySetValues = (fakeAudioContext as unknown as { oscillatorFrequencySetValues: number[] }).oscillatorFrequencySetValues
+		const lastModulatorFrequencyHz = oscillatorFrequencySetValues.find((value) => Math.abs(value - 660) < 0.000001) ?? 0
+		const gainSetValues = (fakeAudioContext as unknown as { gainSetValues: number[] }).gainSetValues
+		const lastModulationDepthHz = gainSetValues.find((value) => Math.abs(value - 240) < 0.000001) ?? 0
+		assert(didStart === true, 'Expected FM playback mode to start successfully with a fake audio context')
+		assert(activeVoiceCount === 1, 'Expected one active FM voice after starting one note')
+		assert(oscillatorCount >= 3, 'Expected FM playback to allocate a carrier, a modulator, and the shared chorus LFO oscillator')
+		assert(modulatorType === 'sine', 'Expected the FM modulator oscillator to remain a sine wave')
+		assert(periodicWaveCallCount === 1, 'Expected the image-derived carrier waveform to still build one periodic wave in FM mode')
+		assert(Math.abs(lastModulatorFrequencyHz - 660) < 0.000001, 'Expected the FM modulator frequency to follow the configured ratio against the played note')
+		assert(Math.abs(lastModulationDepthHz - 240) < 0.000001, 'Expected the FM depth gain to follow the configured modulation depth')
+		return { didStart, activeVoiceCount, oscillatorCount, modulatorType, periodicWaveCallCount, lastModulatorFrequencyHz, lastModulationDepthHz }
+	}
+
+	@Scenario('live fm updates refresh the held voice modulation ratio and depth')
+	static async refreshesExistingFmVoiceParameters(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ updatedModulatorFrequencyHz: number, updatedModulationDepthHz: number }> {
+		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
+		void subjectFactory
+		const fakeAudioContext = this.createFakeAudioContext()
+		const synth = new PrimitiveSynth({
+			playbackMode: 'fm',
+			fmSettings: {
+				ratio: 2,
+				depthHz: 120
+			},
+			createAudioContext: () => fakeAudioContext
+		})
+		await synth.startNote(220)
+		synth.setFmSettings({
+			ratio: 4,
+			depthHz: 360
+		})
+		const updatedModulatorFrequencyHz = (fakeAudioContext as unknown as { oscillatorFrequencySetValues: number[] }).oscillatorFrequencySetValues.slice(-1)[0] ?? 0
+		const updatedModulationDepthHz = (fakeAudioContext as unknown as { gainSetValues: number[] }).gainSetValues.slice(-1)[0] ?? 0
+		assert(Math.abs(updatedModulatorFrequencyHz - 880) < 0.000001, 'Expected live FM ratio updates to retune the held modulator oscillator')
+		assert(Math.abs(updatedModulationDepthHz - 360) < 0.000001, 'Expected live FM depth updates to refresh the held modulation depth gain')
+		return { updatedModulatorFrequencyHz, updatedModulationDepthHz }
+	}
+
 	@Scenario('cutoff playback mode builds a filtered voice and applies resonance settings')
 	static async usesFilteredVoiceInCutoffMode(subjectFactory: SubjectFactory<PrimitiveSynth>, scenario?: ScenarioParameter): Promise<{ didStart: boolean, activeVoiceCount: number, filterCount: number, resonance: number }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
@@ -393,6 +452,10 @@ export class PrimitiveSynthTest {
 			sampleRate: 48000,
 			lastOscillatorType: 'sine',
 			periodicWaveCallCount: 0,
+			oscillatorCount: 0,
+			oscillatorTypes: [] as string[],
+			oscillatorFrequencySetValues: [] as number[],
+			gainSetValues: [] as number[],
 			filterCount: 0,
 			gainCount: 0,
 			delayCount: 0,
@@ -467,6 +530,9 @@ export class PrimitiveSynthTest {
 				} as unknown as DelayNode
 			},
 			createOscillator() {
+				fakeAudioContext.oscillatorCount += 1
+				const oscillatorIndex = fakeAudioContext.oscillatorCount - 1
+				fakeAudioContext.oscillatorTypes[oscillatorIndex] = 'sine'
 				const frequency = {
 					value: 0,
 					cancelScheduledValues: () => {},
@@ -474,6 +540,7 @@ export class PrimitiveSynthTest {
 						this.value = value
 						fakeAudioContext.lastFrequencyValue = value
 						fakeAudioContext.lastFrequencySetValue = value
+						fakeAudioContext.oscillatorFrequencySetValues.push(value)
 						return this
 					},
 					linearRampToValueAtTime(value: number) {
@@ -490,11 +557,13 @@ export class PrimitiveSynthTest {
 					connect: () => {},
 					disconnect: () => {},
 					start: () => {
+						fakeAudioContext.oscillatorTypes[oscillatorIndex] = oscillator.type
 						if (fakeAudioContext.lastOscillatorType !== 'custom') {
 							fakeAudioContext.lastOscillatorType = oscillator.type
 						}
 					},
 					setPeriodicWave: () => {
+						fakeAudioContext.oscillatorTypes[oscillatorIndex] = 'custom'
 						fakeAudioContext.lastOscillatorType = 'custom'
 					},
 					stop() {
@@ -520,6 +589,7 @@ export class PrimitiveSynthTest {
 					setValueAtTime(value: number) {
 						gain.setValueAtTime(value)
 						gainParamValues[gainParamIndex] = value
+						fakeAudioContext.gainSetValues.push(value)
 						return this
 					},
 					linearRampToValueAtTime(value: number) {
