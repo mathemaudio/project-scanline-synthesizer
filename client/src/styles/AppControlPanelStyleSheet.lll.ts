@@ -392,97 +392,9 @@ export class AppControlPanelStyleSheet {
 			min-height: 4.6em;
 		}
 
-		@media (max-width: 1420px) {
-			.status-upload-layout {
-				grid-template-columns: repeat(2, minmax(0, 1fr));
-			}
-
-			.keyboard-guide {
-				grid-template-columns: 1fr;
-			}
-
-			.sound-design-card {
-				grid-column: 1 / -1;
-			}
-		}
-
-		@media (max-width: 1080px) {
-			.mode-section {
-				grid-template-columns: 1fr;
-			}
-
-			.mode-selector-card {
-				justify-self: stretch;
-				width: auto;
-				justify-items: stretch;
-			}
-
-			.mode-selector-card-inline {
-				padding: 0;
-			}
-
-			.radio-group {
-				grid-template-columns: 1fr;
-				justify-content: stretch;
-			}
-
-			.settings-grid {
-				grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-			}
-
-			.settings-grid-waveform-inline {
-				grid-template-columns: 1fr;
-			}
-
-			.settings-grid-effects {
-				grid-template-columns: repeat(3, minmax(0, 1fr));
-			}
-		}
-
-		@media (max-width: 900px) {
-			.status-upload-layout {
-				grid-template-columns: 1fr;
-			}
-
-			.sound-design-card {
-				grid-column: auto;
-			}
-
-			.settings-grid {
-				grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-			}
-
-			.settings-grid-effects {
-				grid-template-columns: repeat(2, minmax(0, 1fr));
-			}
-		}
-
 		@media (max-width: 760px) {
-			header {
-				grid-template-columns: 1fr;
-			}
-
-			.status-table {
-				grid-template-columns: 1fr;
-			}
-
-			.status-table-row,
-			.status-table-row-wide {
-				grid-column: auto;
-				grid-template-columns: minmax(0, 1fr);
-				gap: 4px;
-			}
-
 			.keyboard-octave-button {
 				min-height: 78px;
-			}
-
-			.settings-grid {
-				grid-template-columns: 1fr 1fr;
-			}
-
-			.settings-grid-effects {
-				grid-template-columns: 1fr;
 			}
 
 			:host {

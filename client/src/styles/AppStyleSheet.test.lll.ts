@@ -6,11 +6,12 @@ import { AppStyleSheet } from './AppStyleSheet.lll'
 export class AppStyleSheetTest {
 	testType = 'unit'
 
-	@Scenario('combined style sheet includes piano guide and status table selectors from both style modules')
+	@Scenario('combined style sheet includes piano guide, corner badge, and status table selectors from both style modules')
 	static async includesSplitStyleSelectors(scenario?: ScenarioParameter): Promise<{ cssText: string }> {
 		const assert: AssertFn = scenario?.assert ?? this.failFastAssert
 		const cssText = String(AppStyleSheet.styles)
 		assert(cssText.includes('.piano-keyboard'), 'Expected the combined style sheet to include the piano keyboard guide selector')
+		assert(cssText.includes('.lll-corner-link'), 'Expected the combined style sheet to include the bottom-left LLL corner badge selector')
 		assert(cssText.includes('.status-table-card'), 'Expected the combined style sheet to include the status table card selector')
 		return { cssText }
 	}

@@ -8,7 +8,7 @@ It reads the horizontal rows of an image as single-cycle waveforms, lets you pla
 
 ## Try it
 
-[project-scanline-synthesizer](https://mathemaudio.github.io/project-scanline-synthesizer/)
+[Scanline Synth](https://mathemaudio.github.io/project-scanline-synthesizer/)
 
 ## What it does
 
@@ -39,10 +39,10 @@ That means visual texture turns into timbre:
 
 ## Tech stack
 
-- **LLLTS**
-- **Lit** for UI rendering
-- **Vite** for local development and bundling
-- **Web Audio API** for synthesis
+- **[LLLTS](http://lllts.dev)**
+- **[Lit](https://lit.dev/)** for UI rendering
+- **[Vite](https://vitejs.dev/)** for local development and bundling
+- **[Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)** for synthesis
 
 ## Getting started
 
@@ -153,7 +153,7 @@ The app includes controls for:
 
 ## Testing and validation
 
-The project includes LLLTS tests in `client/src/*.test.lll.ts`, including behavioral coverage around:
+The project includes [LLLTS](http://lllts.dev) tests in `client/src/*.test.lll.ts`, including behavioral coverage around:
 
 - default monophonic behavior
 - portamento defaults and updates

@@ -6,12 +6,19 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;800&display=swap"
+		rel="stylesheet" />
 	<style>
 		html,
 		body {
 			min-height: 100vh;
 			background: #0a0807;
+		}
+
+		:root {
+			--app-design-width: 1860px;
+			--app-global-zoom: min(0.75, calc(100vw / var(--app-design-width) * 0.95));
 		}
 
 		*,
@@ -26,7 +33,7 @@
 		}
 
 		#app {
-			zoom: 0.75;
+			zoom: var(--app-global-zoom);
 		}
 	</style>
 	<title>Scanline Synth</title>

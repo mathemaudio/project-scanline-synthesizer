@@ -16,6 +16,9 @@ export class AppShellRenderer {
 	@Spec('Renders the QWERTY keyboard guide, compact monophonic toggle, playback-mode selector, visible synth status cards, uploaded image waveform panel, and right-side sound settings panel.')
 	public render(): TemplateResult {
 			return html`
+				<a class="lll-corner-link" href="https://lllts.dev" target="_blank" rel="noreferrer" aria-label="Made with LLL">
+					<span class="lll-corner-link-text">made with LLL</span>
+				</a>
 				<main>
 					<header>
 						<div class="header-copy">

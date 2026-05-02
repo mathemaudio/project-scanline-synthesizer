@@ -9,7 +9,7 @@
 		"dev:vite": "vite",
 		"dev:emit": "tsc -w --preserveWatchOutput",
 		"lll-server": "lllts --server start --port 27453 --projectPath . --projectClientLink http://localhost:27451",
-		"lll-check": "lllts --project tsconfig.json --entry src/Start.lll.ts --clientTunnel http://localhost:27453",
+		"lll-check": "pnpm build &&lllts --project tsconfig.json --entry src/Start.lll.ts --clientTunnel http://localhost:27453",
 		"build": "tsc && vite build",
 		"preview": "vite preview",
 		"i": "corepack pnpm i"

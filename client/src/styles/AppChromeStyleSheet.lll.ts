@@ -31,6 +31,58 @@ export class AppChromeStyleSheet {
 			font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 		}
 
+		.lll-corner-link {
+			position: fixed;
+			left: 0;
+			bottom: 0;
+			width: 80px;
+			height: 80px;
+			display: block;
+			clip-path: polygon(0 100%, 0 0, 100% 100%);
+			background: linear-gradient(135deg, rgba(207, 111, 54, 0.96), rgba(112, 56, 28, 0.96));
+			box-shadow: 0 0 20px rgba(207, 111, 54, 0.24);
+			text-decoration: none;
+			color: #fff4d8;
+			z-index: 20;
+			transition: filter 0.12s ease, transform 0.12s ease;
+			isolation: isolate;
+		}
+
+		.lll-corner-link::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(135deg, rgba(255, 235, 190, 0.22), rgba(255, 255, 255, 0));
+			clip-path: inherit;
+			pointer-events: none;
+		}
+
+		.lll-corner-link:hover,
+		.lll-corner-link:focus-visible {
+			filter: brightness(1.08);
+			transform: translateY(-1px);
+		}
+
+		.lll-corner-link-text {
+			position: absolute;
+			left: -5px;
+			bottom: 45px;
+			width: 74px;
+			font-size: 0.62rem;
+			font-family: 'Orbitron', 'Inter', sans-serif;
+			font-weight: 700;
+			line-height: 1.15;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			text-align: center;
+			color: inherit;
+			transform: rotate(45deg);
+			transform-origin: bottom left;
+			text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+			pointer-events: none;
+		}
+
+
 		main {
 			width: min(1860px, 100%);
 			display: grid;
@@ -381,5 +433,7 @@ export class AppChromeStyleSheet {
 			gap: 18px;
 			margin-top: 0;
 		}
+
+
 	`
 }
